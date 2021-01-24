@@ -24,9 +24,18 @@ public class PositionService {
             this.color = color;
 
             this.generate();
+            this.sortMoves();
         }
 
-        public void generate() {
+        private void sortMoves() {
+            this.sort((o1, o2) -> {
+                if (o1.isCapture()) return -1;
+                if (o2.isCapture()) return 1;
+                return 0;
+            });
+        }
+
+        private void generate() {
             int square = 0;
 
             Piece piece;
@@ -64,15 +73,15 @@ public class PositionService {
                                 break;
                         }
 
-                        this.add(new Move(square, gotoSquare));
+                        this.add(new Move(square, gotoSquare, gotoPiece != null));
 
                         if (!piece.isRay() || gotoPiece != null) break;
 
                         if (square == 91 && this.position.getPiece(gotoSquare + 1) instanceof King && this.position.getMovingCastlingRights().canWestSide())
-                            this.add(new Move(gotoSquare + 1, gotoSquare - 1));
+                            this.add(new Move(gotoSquare + 1, gotoSquare - 1, false));
 
                         if (square == 98 && this.position.getPiece(gotoSquare - 1) instanceof King && this.position.getMovingCastlingRights().canEastSide())
-                            this.add(new Move(gotoSquare - 1, gotoSquare + 1));
+                            this.add(new Move(gotoSquare - 1, gotoSquare + 1, false));
 
                         gotoSquare += movement;
                     }

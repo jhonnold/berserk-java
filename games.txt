@@ -45,3 +45,10 @@ https://lichess.org/DBGe7ODP (white)
 53. Ke5 Kd2 54. Ke4 Ke1 55. Qc2 Kf1 56. Kf3 Ke1
 57. Qe2#
 ```
+
+```quiet search added
+black vs stockfish.js 12
+https://www.chess.com/a/xpP7r6TxgsDp
+```
+
+https://lichess.org/krgw3aB6 (Qa2-a3 alot!)?
