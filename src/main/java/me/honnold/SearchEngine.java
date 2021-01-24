@@ -20,7 +20,7 @@ public class SearchEngine {
 
         for (Move m : validMoves) {
             Position movedPosition = position.move(m);
-            int score = -1 * this.ab(maxScore, 69290, 5, movedPosition);
+            int score = -1 * this.ab(-69290, 69290, 5, movedPosition);
 
             if (score > maxScore) {
                 maxScore = score;
