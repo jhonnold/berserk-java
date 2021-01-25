@@ -2,7 +2,10 @@ package me.honnold.position;
 
 import me.honnold.piece.*;
 
-public class Position implements Comparable<Position> {
+import java.util.LinkedList;
+import java.util.List;
+
+public class Position {
     private final Piece[] pieces;
     private final int score;
     private final CastlingRights movingCastlingRights;
@@ -21,36 +24,64 @@ public class Position implements Comparable<Position> {
         this.moving = moving;
     }
 
-    public Color getMoving() {
-        return this.moving;
-    }
-
-    public Piece[] getPieces() {
-        return this.pieces;
-    }
-
-    public Piece getPiece(int square) {
-        return this.pieces[square];
-    }
-
     public int getScore() {
         return this.score;
     }
 
-    public int getEpSquare() {
-        return this.epSquare;
-    }
+    public List<Move> generateMoves() {
+        List<Move> moves = new LinkedList<>();
 
-    public int getKpSquare() {
-        return this.kpSquare;
-    }
+        for (int start = 21; start <= 98; start++) {
+            if (!this.isOnBoard(start)) continue;
 
-    public CastlingRights getMovingCastlingRights() {
-        return movingCastlingRights;
-    }
+            Piece piece = this.pieces[start];
+            if (piece == null || piece.getColor() != this.moving) continue;
 
-    public CastlingRights getOpponentCastlingRights() {
-        return opponentCastlingRights;
+            for (int movement : piece.getDirections()) {
+                int end = start + movement;
+
+                while (this.isOnBoard(end)) {
+                    Piece capturedPiece = this.pieces[end];
+                    if (capturedPiece != null && capturedPiece.getColor() == this.moving) break;
+
+                    if (piece instanceof Pawn) {
+                        // can't push a pawn into a piece (invalid capture)
+                        if ((movement == -20 || movement == -10) && capturedPiece != null) break;
+
+                        // can't double move if not on home square or blocked
+                        if (movement == -20 && (start < 81 || this.pieces[start - 10] != null)) break;
+
+                        if ((movement == -9 || movement == -11) && capturedPiece == null &&
+                                end != this.epSquare &&
+                                end != this.kpSquare &&
+                                end != this.kpSquare - 1 &&
+                                end != this.kpSquare + 1)
+                            break;
+                    }
+
+                    Move move = new Move(start, end, capturedPiece != null);
+                    moves.add(move);
+
+                    if (!piece.isRay() || capturedPiece != null) break;
+
+                    if (start == 91 && this.pieces[end + 1] instanceof King && this.movingCastlingRights.canWestSide())
+                        moves.add(new Move(end + 1, end - 1, false));
+
+                    if (start == 98 && this.pieces[end - 1] instanceof King && this.movingCastlingRights.canEastSide())
+                        moves.add(new Move(end - 1, end + 1, false));
+
+                    end += movement;
+                }
+            }
+        }
+
+        moves.sort((o1, o2) -> {
+            if (o1.isCapture()) return -1;
+            if (o2.isCapture()) return 1;
+            return 0;
+        });
+
+        return moves;
     }
 
     public Position rotate() {
@@ -102,7 +133,7 @@ public class Position implements Comparable<Position> {
             newMovingCastlingRights = new CastlingRights(false, false);
             if (Math.abs(start - end) == 2) {
                 newKpSquare = (start + end) / 2;
-                int movingRookSquare = end < start ? 91: 98;
+                int movingRookSquare = end < start ? 91 : 98;
                 Piece movingRook = moved[movingRookSquare];
                 moved[movingRookSquare] = null;
                 moved[newKpSquare] = movingRook;
@@ -126,8 +157,8 @@ public class Position implements Comparable<Position> {
         int start = m.getStart();
         int end = m.getEnd();
 
-        Piece movingPiece = this.getPiece(start);
-        Piece capturedPiece = this.getPiece(end);
+        Piece movingPiece = this.pieces[start];
+        Piece capturedPiece = this.pieces[end];
 
         int score = movingPiece.getValues()[end] - movingPiece.getValues()[start];
         if (capturedPiece != null)
@@ -152,6 +183,10 @@ public class Position implements Comparable<Position> {
         return score;
     }
 
+    private boolean isOnBoard(int square) {
+        return square % 10 != 0 && square % 10 != 9 && square >= 21 && square <= 98;
+    }
+
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder();
@@ -168,10 +203,5 @@ public class Position implements Comparable<Position> {
         }
 
         return builder.toString();
-    }
-
-    @Override
-    public int compareTo(Position o) {
-        return this.score - o.score;
     }
 }

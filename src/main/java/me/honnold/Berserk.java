@@ -18,8 +18,6 @@ public class Berserk {
     public static void main(String[] args) {
         List<Position> history = new ArrayList<>(1024);
 
-        PositionService service = new PositionService();
-
         Piece[] pieces = new Piece[120];
         pieces[91] = new Rook(Color.WHITE);
         pieces[92] = new Knight(Color.WHITE);
@@ -94,7 +92,7 @@ public class Berserk {
             int start = 101 + match.group(1).charAt(0) - 'a' - 10 * Integer.parseInt(match.group(2));
             int end = 101 + match.group(3).charAt(0) - 'a' - 10 * Integer.parseInt(match.group(4));
 
-            List<Move> validMoves = service.generateMoves(position);
+            List<Move> validMoves = position.generateMoves();
 
             Move move = validMoves.stream()
                     .filter(m -> m.getStart() == start && m.getEnd() == end)
@@ -114,7 +112,9 @@ public class Berserk {
 
             SearchEngine engine = new SearchEngine();
             Pair<Move, Integer> moveResult = engine.getBestMove(position);
-            System.out.println("Score: " + moveResult.getRight() + ", Searched " + engine.nodes + " nodes");
+            System.out.println("Score: " + moveResult.getRight());
+            System.out.println("Nodes: " + engine.nodes);
+            System.out.println("Hits: " + engine.hits);
 
             position = position.move(moveResult.getLeft());
             history.add(position);

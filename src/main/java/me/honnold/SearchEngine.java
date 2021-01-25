@@ -10,10 +10,8 @@ import java.util.stream.Collectors;
 public class SearchEngine {
     public int nodes = 0;
 
-    private final PositionService service = new PositionService();
-
     public Pair<Move, Integer> getBestMove(Position position) {
-        List<Move> validMoves = service.generateMoves(position);
+        List<Move> validMoves = position.generateMoves();
 
         Move bestMove = null;
         int maxScore = -69290;
@@ -32,6 +30,8 @@ public class SearchEngine {
     }
 
     private int quiesce(int a, int b, Position position) {
+        nodes++;
+
         int score = position.getScore();
 
         if (score >= b)
@@ -39,11 +39,10 @@ public class SearchEngine {
         if (a < score)
             a = score;
 
-        List<Move> moves = service.generateMoves(position);
+        List<Move> moves = position.generateMoves();
         List<Move> captures = moves.stream().filter(Move::isCapture).collect(Collectors.toList());
 
         for (Move m : captures) {
-            nodes++;
             Position newPosition = position.move(m);
             score = -1 * quiesce(-b, -a, newPosition);
 
@@ -56,12 +55,14 @@ public class SearchEngine {
         return a;
     }
 
-    private int ab(int a, int b, int depthLeft, Position p) {
-        if (depthLeft == 0) return quiesce(a, b, p);
+    private int ab(int a, int b, int depthLeft, Position position) {
+        nodes++;
 
-        for (Move m : service.generateMoves(p)) {
-            nodes++;
-            int score = -1 * ab(-b, -a, depthLeft - 1, p.move(m));
+        if (depthLeft == 0) return quiesce(a, b, position);
+
+        List<Move> moves = position.generateMoves();
+        for (Move m : moves) {
+            int score = -1 * ab(-b, -a, depthLeft - 1, position.move(m));
 
             if (score >= b)
                 return b;
