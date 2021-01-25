@@ -17,6 +17,7 @@ public class Berserk {
 
     public static void main(String[] args) {
         List<Position> history = new ArrayList<>(1024);
+        SearchEngine engine = new SearchEngine();
 
         Piece[] pieces = new Piece[120];
         pieces[91] = new Rook(Color.WHITE);
@@ -110,11 +111,15 @@ public class Berserk {
 
             System.out.println(position.rotate());
 
-            SearchEngine engine = new SearchEngine();
-            Pair<Move, Integer> moveResult = engine.getBestMove(position);
+            long startTime = System.nanoTime();
+            Pair<Move, Integer> moveResult = engine.bestMove(position);
+            long endTime = System.nanoTime();
+
+            System.out.println();
             System.out.println("Score: " + moveResult.getRight());
             System.out.println("Nodes: " + engine.nodes);
             System.out.println("Hits: " + engine.hits);
+            System.out.println("Duration: " + (endTime - startTime) / 1000000);
 
             position = position.move(moveResult.getLeft());
             history.add(position);

@@ -24,8 +24,28 @@ public class Position {
         this.moving = moving;
     }
 
+    public Piece getPiece(int square) {
+        return this.pieces[square];
+    }
+
+    public Color getMoving() {
+        return this.moving;
+    }
+
     public int getScore() {
         return this.score;
+    }
+
+    public int getEpSquare() {
+        return this.epSquare;
+    }
+
+    public CastlingRights getMovingCastlingRights() {
+        return this.movingCastlingRights;
+    }
+
+    public CastlingRights getOpponentCastlingRights() {
+        return this.opponentCastlingRights;
     }
 
     public List<Move> generateMoves() {
