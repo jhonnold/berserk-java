@@ -10,8 +10,8 @@ import java.util.List;
 public class SearchEngine {
     private static final int CHECKMATE_MIN = 50710;
     private static final int CHECKMATE_MAX = 69290;
-    private static final int MAX_DEPTH = 24;
-    private static final int MAX_SEARCH_TIME = 1000;
+    private static final int MAX_DEPTH = 1000;
+    private static final int MAX_SEARCH_TIME = 5000;
 
     private long startTime = 0;
 
@@ -38,10 +38,6 @@ public class SearchEngine {
         int score = 0;
         for (int depth = 1; depth <= MAX_DEPTH; depth++) {
             score = mtdf(-score, depth, p);
-
-            System.out.println("Depth: " + depth);
-            System.out.println("Score: " + score);
-            System.out.println("PV: " + table.getMoveForPosition(p));
 
             if (timeup()) break;
         }
