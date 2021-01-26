@@ -2,129 +2,155 @@ package me.honnold;
 
 import me.honnold.position.Move;
 import me.honnold.position.Position;
-import me.honnold.tt.ZobristHash;
+import me.honnold.tt.TranspositionTable;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.lang3.tuple.Triple;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class SearchEngine {
     private static final int CHECKMATE_MIN = 50710;
     private static final int CHECKMATE_MAX = 69290;
+    private static final int MAX_DEPTH = 24;
+    private static final int MAX_SEARCH_TIME = 1000;
+
+    private long startTime = 0;
 
     public int nodes = 0;
     public int hits = 0;
 
-    public final Map<Long, Triple<Integer, Integer, Integer>> evals = new HashMap<>();
-    public final Map<Long, Move> moves = new HashMap<>();
+    private final TranspositionTable table = new TranspositionTable();
 
     public Pair<Move, Integer> bestMove(Position p) {
-        evals.clear();
-        moves.clear();
+        table.clear();
+        nodes = 0;
+        hits = 0;
 
-        long posHash = ZobristHash.hash(p);
-        int score = abMemory(1, -CHECKMATE_MAX, CHECKMATE_MIN, 6, p);
-
-        return Pair.of(moves.get(posHash), score);
+        this.startTime = System.currentTimeMillis();
+        int score = search(p);
+        return Pair.of(table.getMoveForPosition(p), score);
     }
 
-    public int abMemory(int type, int alpha, int beta, int depth, Position p) {
+    private boolean timeup() {
+        return System.currentTimeMillis() - this.startTime > MAX_SEARCH_TIME;
+    }
+
+    public int search(Position p) {
+        int score = 0;
+        for (int depth = 1; depth <= MAX_DEPTH; depth++) {
+            score = mtdf(-score, depth, p);
+
+            System.out.println("Depth: " + depth);
+            System.out.println("Score: " + score);
+            System.out.println("PV: " + table.getMoveForPosition(p));
+
+            if (timeup()) break;
+        }
+
+        return score;
+    }
+
+    public int mtdf(int guess, int depth, Position p) {
+        int gamma = guess;
+        int upper = CHECKMATE_MAX;
+        int lower = -CHECKMATE_MAX;
+
+        do {
+            int beta = gamma;
+            if (gamma == lower) beta ++;
+
+            gamma = alphaBeta(beta - 1, beta, depth, p);
+
+            if (gamma < beta)
+                upper = gamma;
+            else
+                lower = gamma;
+        } while (lower < upper - 20);
+
+        return gamma;
+    }
+
+    public int alphaBeta(int alpha, int beta, int depth, Position p) {
         nodes++;
 
-        long posHash = ZobristHash.hash(p);
-        Triple<Integer, Integer, Integer> previousEval = evals.get(posHash);
+        if (p.getScore() <= -CHECKMATE_MIN)
+            return -CHECKMATE_MAX;
+
+        TranspositionTable.Evaluation previousEval = table.getEvaluationForPosition(p);
+
         if (previousEval != null) {
-            int evalDepth = previousEval.getLeft();
-            if (evalDepth >= depth) {
+            if (previousEval.depth >= depth) {
                 hits++;
 
-                if (previousEval.getMiddle() >= beta) return previousEval.getMiddle();
-                if (previousEval.getRight() <= alpha) return previousEval.getRight();
+                if (previousEval.alpha >= beta) return previousEval.alpha;
+                if (previousEval.beta <= alpha) return previousEval.beta;
 
-                alpha = Math.max(alpha, previousEval.getMiddle());
-                beta = Math.min(beta, previousEval.getRight());
+                alpha = Math.max(alpha, previousEval.alpha);
+                beta = Math.min(beta, previousEval.beta);
             }
         }
 
         if (depth == 0) return quiesce(alpha, beta, p);
 
-        int gamma = type == 1 ? -CHECKMATE_MAX : CHECKMATE_MAX;
-        if (type == 1) { // Maximize
-            int a = alpha;
-            
-            for (Move m : p.generateMoves()) {
-                if (gamma >= beta) break;
+        int gamma = -CHECKMATE_MAX;
 
-                Position next = p.move(m);
+        List<Move> moves = p.generateMoves();
+        Move killer = table.getMoveForPosition(p);
 
-                int score = abMemory(0, a, beta, depth - 1, next);
+        if (killer != null)
+            moves.add(0, killer);
 
-                if (score > gamma)
-                    gamma = score;
+        int a = alpha;
 
-                if (gamma > a) {
-                    a = gamma;
-                    moves.put(posHash, m);
-                }
-            }
-        } else if (type == 0) { // Minimize
-            int b = beta;
+        for (Move m : moves) {
+            if (gamma >= beta) break;
 
-            for (Move m : p.generateMoves()) {
-                if (gamma <= alpha) break;
+            Position next = p.move(m);
 
-                Position next = p.move(m);
+            int score = -1 * alphaBeta(-beta, -a, depth - 1, next);
 
-                int score = abMemory(1, alpha, b, depth - 1, next);
+            if (score > gamma)
+                gamma = score;
 
-                if (score < gamma)
-                    gamma = score;
-
-                if (gamma < b) {
-                    b = gamma;
-                    moves.put(posHash, m);
-                }
+            if (gamma > a) {
+                a = gamma;
+                table.putMoveForPosition(p, m);
             }
         }
 
         if (gamma <= alpha) {
-            evals.put(posHash, Triple.of(depth, -CHECKMATE_MAX, gamma));
+            table.putEvaluationForPosition(p, depth, -CHECKMATE_MAX, gamma);
         } else if (gamma < beta) {
-            evals.put(posHash, Triple.of(depth, gamma, gamma));
-        } else  {
-            evals.put(posHash, Triple.of(depth, gamma, CHECKMATE_MAX));
+            table.putEvaluationForPosition(p, depth, gamma, gamma);
+        } else {
+            table.putEvaluationForPosition(p, depth, gamma, CHECKMATE_MAX);
         }
 
         return gamma;
     }
 
-    private int quiesce(int a, int b, Position position) {
+    public int quiesce(int alpha, int beta, Position p) {
         nodes++;
 
-        int score = position.getScore();
+        int score = p.getScore();
+        if (score >= beta)
+            return score;
 
-        if (score >= b)
-            return b;
-        if (score > a)
-            a = score;
+        if (alpha < score)
+            alpha = score;
 
-        List<Move> moves = position.generateMoves();
+        List<Move> moves = p.generateMoves();
 
-        for (Move m : moves) {
+        for (Move m: moves) {
             if (!m.isCapture()) continue;
 
-            Position newPosition = position.move(m);
-            score = -1 * quiesce(-b, -a, newPosition);
+            score = -1 * quiesce(-beta, -alpha, p.move(m));
 
-            if (score >= b)
-                return b;
-
-            if (score > a)
-                a = score;
+            if (score >= beta)
+                return beta;
+            if (score > alpha)
+                alpha = score;
         }
 
-        return a;
+        return alpha;
     }
 }

@@ -180,6 +180,9 @@ public class Position {
         Piece movingPiece = this.pieces[start];
         Piece capturedPiece = this.pieces[end];
 
+        if (movingPiece == null)
+            return -69290;
+
         int score = movingPiece.getValues()[end] - movingPiece.getValues()[start];
         if (capturedPiece != null)
             score += capturedPiece.getValues()[119 - end];

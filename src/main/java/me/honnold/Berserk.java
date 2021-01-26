@@ -109,6 +109,11 @@ public class Berserk {
 
             history.add(position);
 
+            if (position.getScore() <= -50170) {
+                System.out.println("GG");
+                break;
+            }
+
             System.out.println(position.rotate());
 
             long startTime = System.nanoTime();
@@ -123,6 +128,11 @@ public class Berserk {
 
             position = position.move(moveResult.getLeft());
             history.add(position);
+
+            if (moveResult.getRight() == 69290) {
+                System.out.println("Game over, I win!");
+                break;
+            }
         }
 
         in.close();
