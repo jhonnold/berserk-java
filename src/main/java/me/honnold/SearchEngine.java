@@ -1,8 +1,10 @@
 package me.honnold;
 
+import me.honnold.piece.Color;
 import me.honnold.position.Move;
 import me.honnold.position.Position;
 import me.honnold.tt.TranspositionTable;
+import me.honnold.util.FEN;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.List;
@@ -11,7 +13,7 @@ public class SearchEngine {
     private static final int CHECKMATE_MIN = 50710;
     private static final int CHECKMATE_MAX = 69290;
     private static final int MAX_DEPTH = 1000;
-    private static final int MAX_SEARCH_TIME = 5000;
+    private static final int MAX_SEARCH_TIME = 2500;
 
     private long startTime = 0;
 
@@ -40,9 +42,26 @@ public class SearchEngine {
             score = mtdf(-score, depth, p);
 
             if (timeup()) break;
+            System.out.printf("info depth %d score cp %d nodes %d pv %s%n", depth, score, nodes, getPv(p));
         }
 
         return score;
+    }
+
+    private String getPv(Position p) {
+        StringBuilder builder = new StringBuilder();
+        Move m = table.getMoveForPosition(p);
+
+        while (m != null) {
+            builder.append(FEN.convertIdxToSquare(m.getStart(), p.getMoving() == Color.WHITE))
+                    .append(FEN.convertIdxToSquare(m.getEnd(), p.getMoving() == Color.WHITE))
+                    .append(" ");
+
+            p = p.move(m);
+            m = table.getMoveForPosition(p);
+        }
+
+        return builder.toString();
     }
 
     public int mtdf(int guess, int depth, Position p) {

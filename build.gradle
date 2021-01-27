@@ -11,7 +11,7 @@ repositories {
 }
 
 dependencies {
-    implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.11'
+    compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.11'
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
@@ -23,6 +23,14 @@ test {
 
 application {
     mainClass = 'me.honnold.Berserk'
+}
+
+task uci(type: Jar) {
+    manifest {
+        attributes 'Main-Class': 'me.honnold.UCI'
+    }
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
 }
 
 run {
