@@ -1,7 +1,6 @@
 package me.honnold;
 
-import me.honnold.piece.*;
-import me.honnold.position.CastlingRights;
+import me.honnold.piece.Color;
 import me.honnold.position.Move;
 import me.honnold.position.Position;
 import me.honnold.util.FEN;
@@ -88,12 +87,14 @@ public class Berserk {
                     System.out.println("Nodes: " + engine.nodes);
                     System.out.println("Hits: " + engine.hits);
                     System.out.println("Duration: " + (endTime - startTime) / 1000000);
+                    System.out.println("My move: " + FEN.convertIdxToSquare(moveResult.getLeft().getStart(), !playingWhite) + FEN.convertIdxToSquare(moveResult.getLeft().getEnd(), !playingWhite));
                     System.out.println();
 
                     position = position.move(moveResult.getLeft());
                     history.add(position);
 
                     if (moveResult.getRight() == 69290) {
+                        System.out.println(position);
                         System.out.println("Game over, I win!");
                         break;
                     }
@@ -110,6 +111,7 @@ public class Berserk {
     }
 
     public Position getInitialPosition() {
-        return FEN.toPosition("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+//        return FEN.getInit();
+        return FEN.toPosition("r3kr2/p1q2p2/2p1bP2/1p4Q1/2p5/6pP/P5B1/3RR2K w q - 0 1");
     }
 }

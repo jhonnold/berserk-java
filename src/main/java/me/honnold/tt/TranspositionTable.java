@@ -6,7 +6,7 @@ import me.honnold.position.Position;
 import java.util.Arrays;
 
 public class TranspositionTable {
-    private static final int TABLE_SIZE = 50000000;
+    private static final int TABLE_SIZE = (int) Math.pow(2, 24);
 
     private final Evaluation[] evaluations = new Evaluation[TABLE_SIZE];
     private final MoveEntry[] moves = new MoveEntry[TABLE_SIZE];
@@ -75,7 +75,7 @@ public class TranspositionTable {
         return entry.move;
     }
 
-    public synchronized void putMoveForPosition(Position p, Move m) {
+    public void putMoveForPosition(Position p, Move m) {
         long hash = ZobristHash.hash(p);
         int idx = getTableIndex(hash);
 

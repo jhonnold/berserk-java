@@ -121,6 +121,17 @@ public class Position {
     }
 
     public Position move(Move m) {
+        if (m == null)
+            return new Position(
+                    this.pieces,
+                    this.score,
+                    this.movingCastlingRights,
+                    this.opponentCastlingRights,
+                    0,
+                    0,
+                    this.moving
+            ).rotate();
+
         int start = m.getStart();
         int end = m.getEnd();
 

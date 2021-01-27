@@ -29,15 +29,15 @@ public class UCI {
         Scanner in = new Scanner(System.in);
 
         FileHandler fh = null;
-        try {
-            fh = new FileHandler("C:/temp/berserk/out.log");
-            LOGGER.addHandler(fh);
-
-            SimpleFormatter formatter = new SimpleFormatter();
-            fh.setFormatter(formatter);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+//        try {
+//            fh = new FileHandler("C:/temp/berserk/out.log");
+//            LOGGER.addHandler(fh);
+//
+//            SimpleFormatter formatter = new SimpleFormatter();
+//            fh.setFormatter(formatter);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
 
         Position p = FEN.getInit();
         SearchEngine engine = new SearchEngine();

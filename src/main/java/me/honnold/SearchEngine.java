@@ -12,8 +12,8 @@ import java.util.List;
 public class SearchEngine {
     private static final int CHECKMATE_MIN = 50710;
     private static final int CHECKMATE_MAX = 69290;
-    private static final int MAX_DEPTH = 1000;
-    private static final int MAX_SEARCH_TIME = 2500;
+    private static final int MAX_DEPTH = 24;
+    private static final int MAX_SEARCH_TIME = 60000;
 
     private long startTime = 0;
 
@@ -39,13 +39,18 @@ public class SearchEngine {
     public int search(Position p) {
         int score = 0;
         for (int depth = 1; depth <= MAX_DEPTH; depth++) {
+            nodes = 0;
+            hits = 0;
+
             score = mtdf(-score, depth, p);
 
-            if (timeup()) break;
             System.out.printf("info depth %d score cp %d nodes %d pv %s%n", depth, score, nodes, getPv(p));
+            if (timeup() || Math.abs(score) == CHECKMATE_MAX) break;
         }
 
         return score;
+
+//        return alphaBeta(-CHECKMATE_MAX, CHECKMATE_MAX, 4, p);
     }
 
     private String getPv(Position p) {
@@ -65,21 +70,21 @@ public class SearchEngine {
     }
 
     public int mtdf(int guess, int depth, Position p) {
-        int gamma = guess;
         int upper = CHECKMATE_MAX;
         int lower = -CHECKMATE_MAX;
+        int beta = guess;
+        int gamma;
 
         do {
-            int beta = gamma;
-            if (gamma == lower) beta ++;
-
-            gamma = alphaBeta(beta - 1, beta, depth, p);
+             gamma = alphaBeta(beta - 1, beta, depth, p);
 
             if (gamma < beta)
                 upper = gamma;
             else
                 lower = gamma;
-        } while (lower < upper - 20);
+
+            beta = (lower + upper + 1) / 2;
+        } while (lower < upper);
 
         return gamma;
     }
@@ -104,9 +109,21 @@ public class SearchEngine {
             }
         }
 
-        if (depth == 0) return quiesce(alpha, beta, p);
+        if (depth <= 0) return quiesce(alpha, beta, p);
 
         int gamma = -CHECKMATE_MAX;
+        int a = alpha;
+        int score;
+        Position next;
+
+        next = p.move(null);
+        score = -1 * alphaBeta(-beta, -a, depth - 3, next);
+
+        if (score > gamma)
+            gamma = score;
+
+        if (gamma > a)
+            a = gamma;
 
         List<Move> moves = p.generateMoves();
         Move killer = table.getMoveForPosition(p);
@@ -114,14 +131,12 @@ public class SearchEngine {
         if (killer != null)
             moves.add(0, killer);
 
-        int a = alpha;
-
         for (Move m : moves) {
             if (gamma >= beta) break;
 
-            Position next = p.move(m);
+            next = p.move(m);
 
-            int score = -1 * alphaBeta(-beta, -a, depth - 1, next);
+            score = -1 * alphaBeta(-beta, -a, depth - 1, next);
 
             if (score > gamma)
                 gamma = score;
@@ -147,8 +162,11 @@ public class SearchEngine {
         nodes++;
 
         int score = p.getScore();
+        if (p.getScore() <= -CHECKMATE_MIN)
+            return -CHECKMATE_MAX;
+
         if (score >= beta)
-            return score;
+            return beta;
 
         if (alpha < score)
             alpha = score;
