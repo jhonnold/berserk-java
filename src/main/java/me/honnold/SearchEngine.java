@@ -12,45 +12,42 @@ import java.util.List;
 public class SearchEngine {
     private static final int CHECKMATE_MIN = 50710;
     private static final int CHECKMATE_MAX = 69290;
-    private static final int MAX_DEPTH = 24;
-    private static final int MAX_SEARCH_TIME = 60000;
+    private static final int MAX_DEPTH = 100;
+    public static final int MAX_SEARCH_TIME = 30000;
 
     private long startTime = 0;
+    private long endTime = 0;
 
     public int nodes = 0;
     public int hits = 0;
 
     private final TranspositionTable table = new TranspositionTable();
 
-    public Pair<Move, Integer> bestMove(Position p) {
+    public Pair<Move, Integer> bestMove(Position p, int timeLeft) {
         table.clear();
         nodes = 0;
         hits = 0;
 
+        int howMuchTimeToTake = timeLeft / 10;
+        howMuchTimeToTake = Math.min(MAX_SEARCH_TIME, howMuchTimeToTake);
+
         this.startTime = System.currentTimeMillis();
+        this.endTime = this.startTime + howMuchTimeToTake;
         int score = search(p);
         return Pair.of(table.getMoveForPosition(p), score);
-    }
-
-    private boolean timeup() {
-        return System.currentTimeMillis() - this.startTime > MAX_SEARCH_TIME;
     }
 
     public int search(Position p) {
         int score = 0;
         for (int depth = 1; depth <= MAX_DEPTH; depth++) {
-            nodes = 0;
-            hits = 0;
-
             score = mtdf(-score, depth, p);
 
-            System.out.printf("info depth %d score cp %d nodes %d pv %s%n", depth, score, nodes, getPv(p));
-            if (timeup() || Math.abs(score) == CHECKMATE_MAX) break;
+            long now = System.currentTimeMillis();
+            System.out.printf("info depth %d score cp %d nodes %d nps %.0f pv %s%n", depth, score, nodes, (double) nodes / (now - this.startTime) * 1000, getPv(p));
+            if (now > this.endTime || Math.abs(score) == CHECKMATE_MAX) break;
         }
 
         return score;
-
-//        return alphaBeta(-CHECKMATE_MAX, CHECKMATE_MAX, 4, p);
     }
 
     private String getPv(Position p) {
@@ -76,7 +73,7 @@ public class SearchEngine {
         int gamma;
 
         do {
-             gamma = alphaBeta(beta - 1, beta, depth, p);
+            gamma = alphaBeta(beta - 1, beta, depth, p);
 
             if (gamma < beta)
                 upper = gamma;
@@ -90,10 +87,14 @@ public class SearchEngine {
     }
 
     public int alphaBeta(int alpha, int beta, int depth, Position p) {
-        nodes++;
+        depth = Math.max(0, depth);
 
         if (p.getScore() <= -CHECKMATE_MIN)
             return -CHECKMATE_MAX;
+
+        if (depth == 0) return quiesce(alpha, beta, p);
+
+        nodes++;
 
         TranspositionTable.Evaluation previousEval = table.getEvaluationForPosition(p);
 
@@ -108,8 +109,6 @@ public class SearchEngine {
                 beta = Math.min(beta, previousEval.beta);
             }
         }
-
-        if (depth <= 0) return quiesce(alpha, beta, p);
 
         int gamma = -CHECKMATE_MAX;
         int a = alpha;
@@ -162,7 +161,7 @@ public class SearchEngine {
         nodes++;
 
         int score = p.getScore();
-        if (p.getScore() <= -CHECKMATE_MIN)
+        if (score <= -CHECKMATE_MIN)
             return -CHECKMATE_MAX;
 
         if (score >= beta)
@@ -173,10 +172,12 @@ public class SearchEngine {
 
         List<Move> moves = p.generateMoves();
 
-        for (Move m: moves) {
+        for (Move m : moves) {
+            Position next = p.move(m);
+
             if (!m.isCapture()) continue;
 
-            score = -1 * quiesce(-beta, -alpha, p.move(m));
+            score = -1 * quiesce(-beta, -alpha, next);
 
             if (score >= beta)
                 return beta;

@@ -79,7 +79,7 @@ public class Berserk {
                     }
                 } else {
                     long startTime = System.nanoTime();
-                    Pair<Move, Integer> moveResult = engine.bestMove(position);
+                    Pair<Move, Integer> moveResult = engine.bestMove(position, 60000);
                     long endTime = System.nanoTime();
 
                     System.out.println();

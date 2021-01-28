@@ -18,7 +18,7 @@ public class ZobristHash {
     static {
         pieceHashPerSquare = new HashMap<>();
 
-        Random random = new Random(0);
+        Random random = new Random();
 
         List<Class<? extends Piece>> pieceTypes =
                 Arrays.asList(King.class, Queen.class, Rook.class, Bishop.class, Knight.class, Pawn.class);

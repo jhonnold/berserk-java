@@ -52,7 +52,7 @@ public class Position {
         List<Move> moves = new LinkedList<>();
 
         for (int start = 21; start <= 98; start++) {
-            if (!this.isOnBoard(start)) continue;
+            if (!isOnBoard(start)) continue;
 
             Piece piece = this.pieces[start];
             if (piece == null || piece.getColor() != this.moving) continue;
@@ -60,7 +60,7 @@ public class Position {
             for (int movement : piece.getDirections()) {
                 int end = start + movement;
 
-                while (this.isOnBoard(end)) {
+                while (isOnBoard(end)) {
                     Piece capturedPiece = this.pieces[end];
                     if (capturedPiece != null && capturedPiece.getColor() == this.moving) break;
 
@@ -217,7 +217,7 @@ public class Position {
         return score;
     }
 
-    private boolean isOnBoard(int square) {
+    public static boolean isOnBoard(int square) {
         return square % 10 != 0 && square % 10 != 9 && square >= 21 && square <= 98;
     }
 

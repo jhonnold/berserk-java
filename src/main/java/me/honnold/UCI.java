@@ -5,9 +5,11 @@ import me.honnold.position.Move;
 import me.honnold.position.Position;
 import me.honnold.tt.ZobristHash;
 import me.honnold.util.FEN;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Scanner;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
@@ -85,7 +87,14 @@ public class UCI {
                     }
                 }
             } else if (line.startsWith("go")) {
-                Pair<Move, Integer> result = engine.bestMove(p);
+                line = line.substring(3);
+                String[] goArgs = line.split("\\s+");
+                String timeArg = p.getMoving() == Color.WHITE ? "wtime" : "btime";
+
+                int idx = ArrayUtils.indexOf(goArgs, timeArg);
+                int time = idx >= 0 ? Integer.parseInt(goArgs[idx + 1]) : 60000;
+
+                Pair<Move, Integer> result = engine.bestMove(p, time);
                 Move move = result.getLeft();
 
                 boolean asWhite = p.getMoving() == Color.WHITE;
