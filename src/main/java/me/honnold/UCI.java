@@ -80,6 +80,7 @@ public class UCI {
                                 .findFirst()
                                 .orElse(null);
 
+
                         p = p.move(foundMove);
 
                         mover = 1 - mover;
@@ -87,19 +88,44 @@ public class UCI {
                     }
                 }
             } else if (line.startsWith("go")) {
+                if (line.equals("go")) line += " ";
+
                 line = line.substring(3);
                 String[] goArgs = line.split("\\s+");
-                String timeArg = p.getMoving() == Color.WHITE ? "wtime" : "btime";
 
-                int idx = ArrayUtils.indexOf(goArgs, timeArg);
-                int time = idx >= 0 ? Integer.parseInt(goArgs[idx + 1]) : 60000;
+                int relevantArg;
+                if ((relevantArg = ArrayUtils.indexOf(goArgs, "perft")) >= 0) {
+                    int depth = Integer.parseInt(goArgs[relevantArg + 1]);
 
-                Pair<Move, Integer> result = engine.bestMove(p, time);
-                Move move = result.getLeft();
+                    long startAll = System.nanoTime();
+                    long totalNodes = 0;
+                    Position init = FEN.getInit();
+                    for (Move m : init.generateMoves()) {
+                        long start = System.nanoTime();
+                        long nodes = Perft.perft(depth - 1, init.move(m));
+                        long end = System.nanoTime();
 
-                boolean asWhite = p.getMoving() == Color.WHITE;
+                        totalNodes += nodes;
+                        println(FEN.moveToString(m, true) + " nodes " + nodes + " duration " + (end - start) / 1000000);
+                    }
 
-                println("bestmove " + FEN.convertIdxToSquare(move.getStart(), asWhite) + FEN.convertIdxToSquare(move.getEnd(), asWhite));
+                    long endAll = System.nanoTime();
+                    println("nodes " + totalNodes + " duration " + (endAll - startAll) / 1000000);
+                } else {
+                    String timeArg = p.getMoving() == Color.WHITE ? "wtime" : "btime";
+
+                    int idx = ArrayUtils.indexOf(goArgs, timeArg);
+                    int time = idx >= 0 ? Integer.parseInt(goArgs[idx + 1]) : 60000;
+
+                    boolean infinite = ArrayUtils.indexOf(goArgs, "infinite") >= 0;
+
+                    Pair<Move, Integer> result = engine.bestMove(p, time, infinite);
+                    Move move = result.getLeft();
+
+                    boolean asWhite = p.getMoving() == Color.WHITE;
+
+                    println("bestmove " + FEN.convertIdxToSquare(move.getStart(), asWhite) + FEN.convertIdxToSquare(move.getEnd(), asWhite));
+                }
             }
         }
 

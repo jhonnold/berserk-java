@@ -2,6 +2,7 @@ package me.honnold.util;
 
 import me.honnold.piece.*;
 import me.honnold.position.CastlingRights;
+import me.honnold.position.Move;
 import me.honnold.position.Position;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -75,7 +76,8 @@ public class FEN {
                 blackCR,
                 epSquare,
                 0,
-                Color.WHITE
+                Color.WHITE,
+                20
         );
 
         if (sideToMove == Color.WHITE)
@@ -108,5 +110,9 @@ public class FEN {
         int end = convertSquareToIdx(match.group(3).charAt(0), match.group(4).charAt(0), playingWhite);
 
         return Pair.of(start, end);
+    }
+
+    public static String moveToString(Move m, boolean asWhite) {
+        return FEN.convertIdxToSquare(m.getStart(), asWhite) + FEN.convertIdxToSquare(m.getEnd(), asWhite);
     }
 }

@@ -13,7 +13,8 @@ public class SearchEngine {
     private static final int CHECKMATE_MIN = 50710;
     private static final int CHECKMATE_MAX = 69290;
     private static final int MAX_DEPTH = 100;
-    public static final int MAX_SEARCH_TIME = 30000;
+    public static final int MAX_SEARCH_TIME = 15000;
+    public static final int OPENING_MAX_TIME = 2500;
 
     private long startTime = 0;
     private long endTime = 0;
@@ -23,13 +24,15 @@ public class SearchEngine {
 
     private final TranspositionTable table = new TranspositionTable();
 
-    public Pair<Move, Integer> bestMove(Position p, int timeLeft) {
+    public Pair<Move, Integer> bestMove(Position p, int timeLeft, boolean infinite) {
         table.clear();
         nodes = 0;
         hits = 0;
 
-        int howMuchTimeToTake = timeLeft / 10;
-        howMuchTimeToTake = Math.min(MAX_SEARCH_TIME, howMuchTimeToTake);
+        int howMuchTimeToTake = timeLeft / 40;
+        howMuchTimeToTake = Math.min(p.getMoves() < 20 ? OPENING_MAX_TIME : MAX_SEARCH_TIME, howMuchTimeToTake);
+        if (infinite)
+            howMuchTimeToTake = Integer.MAX_VALUE;
 
         this.startTime = System.currentTimeMillis();
         this.endTime = this.startTime + howMuchTimeToTake;
@@ -43,18 +46,18 @@ public class SearchEngine {
             score = mtdf(-score, depth, p);
 
             long now = System.currentTimeMillis();
-            System.out.printf("info depth %d score cp %d nodes %d nps %.0f pv %s%n", depth, score, nodes, (double) nodes / (now - this.startTime) * 1000, getPv(p));
+            System.out.printf("info depth %d score cp %d nodes %d nps %.0f pv %s%n", depth, score, nodes, (double) nodes / (now - this.startTime) * 1000, getPv(p, depth));
             if (now > this.endTime || Math.abs(score) == CHECKMATE_MAX) break;
         }
 
         return score;
     }
 
-    private String getPv(Position p) {
+    private String getPv(Position p, int depth) {
         StringBuilder builder = new StringBuilder();
         Move m = table.getMoveForPosition(p);
 
-        while (m != null) {
+        while (m != null && depth-- > 0) {
             builder.append(FEN.convertIdxToSquare(m.getStart(), p.getMoving() == Color.WHITE))
                     .append(FEN.convertIdxToSquare(m.getEnd(), p.getMoving() == Color.WHITE))
                     .append(" ");
@@ -73,7 +76,7 @@ public class SearchEngine {
         int gamma;
 
         do {
-            gamma = alphaBeta(beta - 1, beta, depth, p);
+            gamma = alphaBeta(beta - 1, beta, depth, p, true);
 
             if (gamma < beta)
                 upper = gamma;
@@ -86,7 +89,7 @@ public class SearchEngine {
         return gamma;
     }
 
-    public int alphaBeta(int alpha, int beta, int depth, Position p) {
+    public int alphaBeta(int alpha, int beta, int depth, Position p, boolean isRoot) {
         depth = Math.max(0, depth);
 
         if (p.getScore() <= -CHECKMATE_MIN)
@@ -115,14 +118,22 @@ public class SearchEngine {
         int score;
         Position next;
 
-        next = p.move(null);
-        score = -1 * alphaBeta(-beta, -a, depth - 3, next);
+        if (depth > 2 && !isRoot) {
+            next = p.move(null);
+            score = -1 * alphaBeta(-beta, -a, depth - 2, next, false);
 
-        if (score > gamma)
-            gamma = score;
+            if (score >= beta)
+                return beta;
+        }
 
-        if (gamma > a)
-            a = gamma;
+//            next = p.move(null);
+//            score = -1 * alphaBeta(-beta, -a, depth - 2, next);
+//
+//            if (score > gamma)
+//                gamma = score;
+//
+//            if (gamma > a)
+//                a = gamma;
 
         List<Move> moves = p.generateMoves();
         Move killer = table.getMoveForPosition(p);
@@ -130,12 +141,16 @@ public class SearchEngine {
         if (killer != null)
             moves.add(0, killer);
 
-        for (Move m : moves) {
+        for (int i = 1; i <= moves.size(); i++) {
             if (gamma >= beta) break;
+
+            Move m = moves.get(i - 1);
+            if (isRoot)
+                System.out.printf("info depth %d currmove %s currmovenumber %d%n",  depth, FEN.moveToString(m, p.getMoving() == Color.WHITE), i);
 
             next = p.move(m);
 
-            score = -1 * alphaBeta(-beta, -a, depth - 1, next);
+            score = -1 * alphaBeta(-beta, -a, depth - 1, next, false);
 
             if (score > gamma)
                 gamma = score;
@@ -144,6 +159,7 @@ public class SearchEngine {
                 a = gamma;
                 table.putMoveForPosition(p, m);
             }
+
         }
 
         if (gamma <= alpha) {
@@ -161,6 +177,7 @@ public class SearchEngine {
         nodes++;
 
         int score = p.getScore();
+
         if (score <= -CHECKMATE_MIN)
             return -CHECKMATE_MAX;
 
@@ -176,6 +193,8 @@ public class SearchEngine {
             Position next = p.move(m);
 
             if (!m.isCapture()) continue;
+            if (p.getScore() + p.getPiece(m.getEnd()).getValues()[119 - m.getEnd()] + 200 < alpha)
+                continue;
 
             score = -1 * quiesce(-beta, -alpha, next);
 

@@ -2,6 +2,7 @@ package me.honnold.position;
 
 import me.honnold.piece.*;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -13,8 +14,9 @@ public class Position {
     private final int epSquare;
     private final int kpSquare;
     private final Color moving;
+    private final int moves;
 
-    public Position(Piece[] pieces, int score, CastlingRights movingCastlingRights, CastlingRights opponentCastlingRights, int epSquare, int kpSquare, Color moving) {
+    public Position(Piece[] pieces, int score, CastlingRights movingCastlingRights, CastlingRights opponentCastlingRights, int epSquare, int kpSquare, Color moving, int moves) {
         this.pieces = pieces;
         this.score = score;
         this.movingCastlingRights = movingCastlingRights;
@@ -22,6 +24,7 @@ public class Position {
         this.epSquare = epSquare;
         this.kpSquare = kpSquare;
         this.moving = moving;
+        this.moves = moves;
     }
 
     public Piece getPiece(int square) {
@@ -49,7 +52,7 @@ public class Position {
     }
 
     public List<Move> generateMoves() {
-        List<Move> moves = new LinkedList<>();
+        List<Move> moves = new ArrayList<>();
 
         for (int start = 21; start <= 98; start++) {
             if (!isOnBoard(start)) continue;
@@ -116,7 +119,8 @@ public class Position {
                 this.movingCastlingRights.copy(),
                 this.epSquare != 0 ? 119 - this.epSquare : 0,
                 this.kpSquare != 0 ? 119 - this.kpSquare : 0,
-                this.moving == Color.WHITE ? Color.BLACK : Color.WHITE
+                this.moving == Color.WHITE ? Color.BLACK : Color.WHITE,
+                this.moves
         );
     }
 
@@ -129,7 +133,8 @@ public class Position {
                     this.opponentCastlingRights,
                     0,
                     0,
-                    this.moving
+                    this.moving,
+                    this.moves + 1
             ).rotate();
 
         int start = m.getStart();
@@ -155,10 +160,10 @@ public class Position {
         CastlingRights newMovingCastlingRights = this.movingCastlingRights.copy();
         CastlingRights newOpponentCastlingRights = this.opponentCastlingRights.copy();
 
-        if (start == 91) newMovingCastlingRights = new CastlingRights(false, newMovingCastlingRights.canWestSide());
-        if (start == 98) newMovingCastlingRights = new CastlingRights(newMovingCastlingRights.canEastSide(), false);
-        if (end == 21) newOpponentCastlingRights = new CastlingRights(newOpponentCastlingRights.canEastSide(), false);
-        if (end == 28) newOpponentCastlingRights = new CastlingRights(false, newOpponentCastlingRights.canWestSide());
+        if (start == 91) newMovingCastlingRights = new CastlingRights(newMovingCastlingRights.canEastSide(), false);
+        if (start == 98) newMovingCastlingRights = new CastlingRights(false, newMovingCastlingRights.canWestSide());
+        if (end == 21) newOpponentCastlingRights = new CastlingRights(false, newOpponentCastlingRights.canWestSide());
+        if (end == 28) newOpponentCastlingRights = new CastlingRights(newOpponentCastlingRights.canEastSide(), false);
 
         if (movingPiece instanceof King) {
             newMovingCastlingRights = new CastlingRights(false, false);
@@ -181,7 +186,7 @@ public class Position {
             }
         }
 
-        return new Position(moved, newScore, newMovingCastlingRights, newOpponentCastlingRights, newEpSquare, newKpSquare, this.moving).rotate();
+        return new Position(moved, newScore, newMovingCastlingRights, newOpponentCastlingRights, newEpSquare, newKpSquare, this.moving, this.moves + 1).rotate();
     }
 
     public int value(Move m) {
@@ -237,5 +242,27 @@ public class Position {
         }
 
         return builder.toString();
+    }
+
+    public int getMoves() {
+        return moves;
+    }
+
+    public boolean canCaptureKing() {
+        int enemyKingLocation = 0;
+        for (int square = 21; square <= 98; square++) {
+            Piece piece = this.getPiece(square);
+            if (piece instanceof King && piece.getColor() != this.getMoving()) {
+                enemyKingLocation = square;
+                break;
+            }
+        }
+
+        List<Move> moves = this.generateMoves();
+        for (Move m : moves)
+            if (m.getEnd() == enemyKingLocation)
+                return true;
+
+        return false;
     }
 }
