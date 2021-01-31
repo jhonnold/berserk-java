@@ -4,6 +4,7 @@ import org.apache.commons.lang3.ArrayUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 
 import static me.honnold.bitboard.BoardUtils.*;
@@ -213,7 +214,7 @@ public class Position {
     }
 
     public List<Move> getMoves() {
-        List<Move> moves = new ArrayList<>(128);
+        LinkedList<Move> moves = new LinkedList<>();
 
         long pieceBoard, attacks;
         int direction = sideToMove == 0 ? -8 : 8;
@@ -231,10 +232,10 @@ public class Position {
                     // off the board or blocked
                     if (!getBit(occupancyBitboards[2], end)) {
                         if ((sideToMove == 0 && start >= 8 && start <= 15) || (sideToMove == 1 && start >= 48 && start <= 55)) {
-                            moves.add(new Move(start, end, i, 8 + sideToMove, false, false, false, false));
-                            moves.add(new Move(start, end, i, 6 + sideToMove, false, false, false, false));
-                            moves.add(new Move(start, end, i, 4 + sideToMove, false, false, false, false));
-                            moves.add(new Move(start, end, i, 2 + sideToMove, false, false, false, false));
+                            moves.addFirst(new Move(start, end, i, 8 + sideToMove, false, false, false, false));
+                            moves.addFirst(new Move(start, end, i, 6 + sideToMove, false, false, false, false));
+                            moves.addFirst(new Move(start, end, i, 4 + sideToMove, false, false, false, false));
+                            moves.addFirst(new Move(start, end, i, 2 + sideToMove, false, false, false, false));
                         } else {
                             moves.add(new Move(start, end, i, -1, false, false, false, false));
                             if ((sideToMove == 0 && start >= 48 && start <= 55) || (sideToMove == 1 && start >= 8 && start <= 15)) {
@@ -251,19 +252,19 @@ public class Position {
                         attacks = popBit(attacks, end);
 
                         if ((sideToMove == 0 && start >= 8 && start <= 15) || (sideToMove == 1 && start >= 48 && start <= 55)) {
-                            moves.add(new Move(start, end, i, 8 + sideToMove, true, false, false, false));
-                            moves.add(new Move(start, end, i, 6 + sideToMove, true, false, false, false));
-                            moves.add(new Move(start, end, i, 4 + sideToMove, true, false, false, false));
-                            moves.add(new Move(start, end, i, 2 + sideToMove, true, false, false, false));
+                            moves.addFirst(new Move(start, end, i, 8 + sideToMove, true, false, false, false));
+                            moves.addFirst(new Move(start, end, i, 6 + sideToMove, true, false, false, false));
+                            moves.addFirst(new Move(start, end, i, 4 + sideToMove, true, false, false, false));
+                            moves.addFirst(new Move(start, end, i, 2 + sideToMove, true, false, false, false));
                         } else {
-                            moves.add(new Move(start, end, i, -1, true, false, false, false));
+                            moves.addFirst(new Move(start, end, i, -1, true, false, false, false));
                         }
                     }
 
                     if (epSquare >= 0) {
                         attacks = AttackMasks.PAWN_ATTACKS[sideToMove][start] & (1L << epSquare);
                         if (attacks != 0) {
-                            moves.add(new Move(start, epSquare, i, -1, false, false, true, false));
+                            moves.addFirst(new Move(start, epSquare, i, -1, false, false, true, false));
                         }
                     }
                 }
@@ -311,7 +312,7 @@ public class Position {
                         attacks = popBit(attacks, end);
 
                         if (getBit(occupancyBitboards[1 - sideToMove], end))
-                            moves.add(new Move(start, end, i, -1, true, false, false, false));
+                            moves.addFirst(new Move(start, end, i, -1, true, false, false, false));
                         else
                             moves.add(new Move(start, end, i, -1, false, false, false, false));
                     }
@@ -328,7 +329,7 @@ public class Position {
                         attacks = popBit(attacks, end);
 
                         if (getBit(occupancyBitboards[1 - sideToMove], end))
-                            moves.add(new Move(start, end, i, -1, true, false, false, false));
+                            moves.addFirst(new Move(start, end, i, -1, true, false, false, false));
                         else
                             moves.add(new Move(start, end, i, -1, false, false, false, false));
                     }
@@ -345,7 +346,7 @@ public class Position {
                         attacks = popBit(attacks, end);
 
                         if (getBit(occupancyBitboards[1 - sideToMove], end))
-                            moves.add(new Move(start, end, i, -1, true, false, false, false));
+                            moves.addFirst(new Move(start, end, i, -1, true, false, false, false));
                         else
                             moves.add(new Move(start, end, i, -1, false, false, false, false));
                     }
@@ -362,7 +363,7 @@ public class Position {
                         attacks = popBit(attacks, end);
 
                         if (getBit(occupancyBitboards[1 - sideToMove], end))
-                            moves.add(new Move(start, end, i, -1, true, false, false, false));
+                            moves.addFirst(new Move(start, end, i, -1, true, false, false, false));
                         else
                             moves.add(new Move(start, end, i, -1, false, false, false, false));
                     }
@@ -379,7 +380,7 @@ public class Position {
                         attacks = popBit(attacks, end);
 
                         if (getBit(occupancyBitboards[1 - sideToMove], end))
-                            moves.add(new Move(start, end, i, -1, true, false, false, false));
+                            moves.addFirst(new Move(start, end, i, -1, true, false, false, false));
                         else
                             moves.add(new Move(start, end, i, -1, false, false, false, false));
                     }

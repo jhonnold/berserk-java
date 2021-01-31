@@ -80,6 +80,10 @@ public class SearchEngine {
         if (p.value <= -CHECKMATE_MIN)
             return -CHECKMATE_MAX;
 
+        boolean inCheck = p.isSquareAttacked(BoardUtils.getLSBIndex(p.pieceBitboards[10 + p.sideToMove]), 1 - p.sideToMove);
+
+        if (inCheck) depth++;
+
         if (depth == 0) return quiesce(alpha, beta, p);
 
         nodes++;
@@ -103,9 +107,27 @@ public class SearchEngine {
         int score;
         Position next;
 
-        List<Move> moves = p.getMoves();
-        Move killer = table.getMoveForPosition(p);
+        // null move pruning
+        if (depth >= 3 && !inCheck) {
+            next = new Position(p);
 
+            // Make the null move
+            if (next.epSquare != -1) next.zHash ^= ZobristHash.epKeys[next.epSquare];
+            next.epSquare = -1;
+
+            next.sideToMove = 1 - next.sideToMove;
+            next.zHash ^= ZobristHash.sideKey;
+            next.value = -next.value;
+
+            score = -1 * alphaBeta(-beta, -beta + 1, depth - 3, next, false);
+
+            if (score >= beta)
+                return beta;
+        }
+
+        List<Move> moves = p.getMoves();
+
+        Move killer = table.getMoveForPosition(p);
         if (killer != null)
             moves.add(0, killer);
 
@@ -113,8 +135,8 @@ public class SearchEngine {
             if (gamma >= beta) break;
 
             Move m = moves.get(i - 1);
-//            if (isRoot)
-//                System.out.printf("info depth %d currmove %s currmovenumber %d%n",  depth, m, i);
+            if (isRoot)
+                System.out.printf("info depth %d currmove %s currmovenumber %d%n",  depth, m, i);
 
             next = new Position(p);
             boolean isValid = next.makeMove(m);
