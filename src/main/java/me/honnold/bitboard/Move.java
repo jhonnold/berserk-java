@@ -27,7 +27,7 @@ public class Move {
         sb.append(Position.squares[start]).append(Position.squares[end]);
 
         if (promotionPiece >= 0)
-            sb.append(Position.pieceSymbols[promotionPiece]);
+            sb.append(Character.toLowerCase(Position.pieceSymbols[promotionPiece]));
 
         return sb.toString();
     }

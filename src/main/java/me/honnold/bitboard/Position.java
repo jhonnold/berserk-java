@@ -2,8 +2,8 @@ package me.honnold.bitboard;
 
 import org.apache.commons.lang3.ArrayUtils;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 
 import static me.honnold.bitboard.BoardUtils.*;
@@ -39,6 +39,8 @@ public class Position {
     public int sideToMove;
     public int castling;
     public int epSquare;
+    public int value = 0;
+    public long zHash = 0;
 
     public Position(String fen) {
         String[] parts = fen.split("\\s+");
@@ -69,6 +71,9 @@ public class Position {
         for (int i = 0; i < 12; i++)
             occupancyBitboards[i % 2] |= pieceBitboards[i];
         occupancyBitboards[2] = occupancyBitboards[0] | occupancyBitboards[1];
+
+        this.value = 0;
+        this.zHash = ZobristHash.generate(this);
     }
 
     public Position(Position p) {
@@ -81,6 +86,8 @@ public class Position {
         this.sideToMove = p.sideToMove;
         this.castling = p.castling;
         this.epSquare = p.epSquare;
+        this.value = p.value;
+        this.zHash = p.zHash;
     }
 
     public boolean makeMove(Move m) {
@@ -90,12 +97,19 @@ public class Position {
         int promotionPiece = m.promotionPiece;
 
         this.pieceBitboards[piece] = popBit(this.pieceBitboards[piece], start);
+        this.value -= (Piece.squareValues[piece][start]);
+        this.zHash ^= ZobristHash.pieceKeys[piece][start];
+
         this.pieceBitboards[piece] = setBit(this.pieceBitboards[piece], end);
+        this.value += (Piece.squareValues[piece][end]);
+        this.zHash ^= ZobristHash.pieceKeys[piece][end];
 
         if (m.capture) {
             for (int i = (1 - sideToMove); i < 12; i += 2) {
                 if (getBit(this.pieceBitboards[i], end)) {
                     this.pieceBitboards[i] = popBit(this.pieceBitboards[i], end);
+                    this.value += (Piece.baseValues[i >> 1] + Piece.squareValues[i][end]);
+                    this.zHash ^= ZobristHash.pieceKeys[i][end];
                     break;
                 }
             }
@@ -103,40 +117,75 @@ public class Position {
 
         if (promotionPiece >= 0) {
             this.pieceBitboards[sideToMove] = popBit(this.pieceBitboards[sideToMove], end);
+            this.value -= (Piece.baseValues[0] + Piece.squareValues[sideToMove][end]);
+            this.zHash ^= ZobristHash.pieceKeys[sideToMove][end];
+
             this.pieceBitboards[promotionPiece] = setBit(this.pieceBitboards[promotionPiece], end);
+            this.value += (Piece.baseValues[promotionPiece >> 1] + Piece.squareValues[promotionPiece >> 1][end]);
+            this.zHash ^= ZobristHash.pieceKeys[promotionPiece][end];
         }
 
-        if (m.epCapture)
+        if (m.epCapture) {
             this.pieceBitboards[1 - sideToMove] = popBit(this.pieceBitboards[1 - sideToMove], end + (sideToMove == 0 ? 8 : -8));
+            this.value += (Piece.baseValues[0] + Piece.squareValues[1 - sideToMove][end + (sideToMove == 0 ? 8 : -8)]);
+            this.zHash ^= ZobristHash.pieceKeys[1 - sideToMove][end - (sideToMove == 0 ? 8 : -8)];
+        }
 
-        this.epSquare = -1;
+        if (this.epSquare != -1) {
+            this.zHash ^= ZobristHash.epKeys[this.epSquare];
+            this.epSquare = -1;
+        }
 
-        if (m.doublePush)
+        if (m.doublePush) {
             this.epSquare = end + (sideToMove == 0 ? 8 : -8);
+            this.zHash ^= ZobristHash.epKeys[this.epSquare];
+        }
 
         if (m.castle) {
             switch (end) {
                 case 62:
                     this.pieceBitboards[6] = popBit(this.pieceBitboards[6], 63);
+                    this.value -= Piece.squareValues[6][63];
+                    this.zHash ^= ZobristHash.pieceKeys[6][63];
+
                     this.pieceBitboards[6] = setBit(this.pieceBitboards[6], 61);
+                    this.value += Piece.squareValues[6][61];
+                    this.zHash ^= ZobristHash.pieceKeys[6][61];
                     break;
                 case 58:
                     this.pieceBitboards[6] = popBit(this.pieceBitboards[6], 56);
+                    this.value -= Piece.squareValues[6][56];
+                    this.zHash ^= ZobristHash.pieceKeys[6][56];
+
                     this.pieceBitboards[6] = setBit(this.pieceBitboards[6], 59);
+                    this.value += Piece.squareValues[6][59];
+                    this.zHash ^= ZobristHash.pieceKeys[6][59];
                     break;
                 case 6:
                     this.pieceBitboards[7] = popBit(this.pieceBitboards[7], 7);
+                    this.value -= Piece.squareValues[7][7];
+                    this.zHash ^= ZobristHash.pieceKeys[7][7];
+
                     this.pieceBitboards[7] = setBit(this.pieceBitboards[7], 5);
+                    this.value += Piece.squareValues[7][5];
+                    this.zHash ^= ZobristHash.pieceKeys[7][5];
                     break;
                 case 2:
                     this.pieceBitboards[7] = popBit(this.pieceBitboards[7], 0);
+                    this.value -= Piece.squareValues[7][0];
+                    this.zHash ^= ZobristHash.pieceKeys[7][0];
+
                     this.pieceBitboards[7] = setBit(this.pieceBitboards[7], 3);
+                    this.value += Piece.squareValues[7][3];
+                    this.zHash ^= ZobristHash.pieceKeys[7][3];
                     break;
             }
         }
 
+        this.zHash ^= ZobristHash.castleKeys[this.castling];
         this.castling &= castlingRights[start];
         this.castling &= castlingRights[end];
+        this.zHash ^= ZobristHash.castleKeys[this.castling];
 
         Arrays.fill(this.occupancyBitboards, 0L);
         for (int i = 0; i < 12; i++)
@@ -145,11 +194,14 @@ public class Position {
         occupancyBitboards[2] = occupancyBitboards[0] | occupancyBitboards[1];
 
         this.sideToMove = 1 - this.sideToMove;
+        this.value = -this.value;
 
         return !isSquareAttacked(getLSBIndex(this.pieceBitboards[11 - this.sideToMove]), this.sideToMove);
     }
 
     public boolean isSquareAttacked(int square, int bySide) {
+        if (square == -1) return false;
+
         if ((AttackMasks.PAWN_ATTACKS[1 - bySide][square] & pieceBitboards[bySide]) != 0) return true;
         if ((AttackMasks.KNIGHT_ATTACKS[square] & pieceBitboards[2 + bySide]) != 0) return true;
         if ((AttackMasks.getBishopAttacks(square, occupancyBitboards[2]) & pieceBitboards[4 + bySide]) != 0)
@@ -160,18 +212,21 @@ public class Position {
         return (AttackMasks.KING_ATTACKS[square] & pieceBitboards[10 + bySide]) != 0;
     }
 
-    public Iterable<Move> getMoves() {
-        List<Move> moves = new LinkedList<>();
+    public List<Move> getMoves() {
+        List<Move> moves = new ArrayList<>(128);
+
+        long pieceBoard, attacks;
+        int direction = sideToMove == 0 ? -8 : 8;
+        int start, end;
 
         for (int i = sideToMove; i < 12; i += 2) {
-            long pieceBoard = pieceBitboards[i];
+            pieceBoard = pieceBitboards[i];
 
             if (i >> 1 == 0) { // pawns
                 while (pieceBoard != 0) {
-                    int direction = sideToMove == 0 ? -8 : 8;
-                    int start = getLSBIndex(pieceBoard);
+                    start = getLSBIndex(pieceBoard);
                     pieceBoard = popBit(pieceBoard, start);
-                    int end = start + direction;
+                    end = start + direction;
 
                     // off the board or blocked
                     if (!getBit(occupancyBitboards[2], end)) {
@@ -190,7 +245,7 @@ public class Position {
                         }
                     }
 
-                    long attacks = AttackMasks.PAWN_ATTACKS[sideToMove][start] & occupancyBitboards[1 - sideToMove];
+                    attacks = AttackMasks.PAWN_ATTACKS[sideToMove][start] & occupancyBitboards[1 - sideToMove];
                     while (attacks != 0) {
                         end = getLSBIndex(attacks);
                         attacks = popBit(attacks, end);
@@ -208,7 +263,7 @@ public class Position {
                     if (epSquare >= 0) {
                         attacks = AttackMasks.PAWN_ATTACKS[sideToMove][start] & (1L << epSquare);
                         if (attacks != 0) {
-                            moves.add(new Move(start, epSquare, i, -1, true, false, true, false));
+                            moves.add(new Move(start, epSquare, i, -1, false, false, true, false));
                         }
                     }
                 }
@@ -246,13 +301,13 @@ public class Position {
                 }
 
                 while (pieceBoard != 0) {
-                    int start = getLSBIndex(pieceBoard);
+                    start = getLSBIndex(pieceBoard);
                     pieceBoard = popBit(pieceBoard, start);
 
-                    long attacks = AttackMasks.KING_ATTACKS[start] & ~occupancyBitboards[sideToMove];
+                    attacks = AttackMasks.KING_ATTACKS[start] & ~occupancyBitboards[sideToMove];
 
                     while (attacks != 0) {
-                        int end = getLSBIndex(attacks);
+                        end = getLSBIndex(attacks);
                         attacks = popBit(attacks, end);
 
                         if (getBit(occupancyBitboards[1 - sideToMove], end))
@@ -263,13 +318,13 @@ public class Position {
                 }
             } else if (i >> 1 == 1) { // knights
                 while (pieceBoard != 0) {
-                    int start = getLSBIndex(pieceBoard);
+                    start = getLSBIndex(pieceBoard);
                     pieceBoard = popBit(pieceBoard, start);
 
-                    long attacks = AttackMasks.KNIGHT_ATTACKS[start] & ~occupancyBitboards[sideToMove];
+                    attacks = AttackMasks.KNIGHT_ATTACKS[start] & ~occupancyBitboards[sideToMove];
 
                     while (attacks != 0) {
-                        int end = getLSBIndex(attacks);
+                        end = getLSBIndex(attacks);
                         attacks = popBit(attacks, end);
 
                         if (getBit(occupancyBitboards[1 - sideToMove], end))
@@ -280,13 +335,13 @@ public class Position {
                 }
             } else if (i >> 1 == 2) { // bishops
                 while (pieceBoard != 0) {
-                    int start = getLSBIndex(pieceBoard);
+                    start = getLSBIndex(pieceBoard);
                     pieceBoard = popBit(pieceBoard, start);
 
-                    long attacks = AttackMasks.getBishopAttacks(start, occupancyBitboards[2]) & ~occupancyBitboards[sideToMove];
+                    attacks = AttackMasks.getBishopAttacks(start, occupancyBitboards[2]) & ~occupancyBitboards[sideToMove];
 
                     while (attacks != 0) {
-                        int end = getLSBIndex(attacks);
+                        end = getLSBIndex(attacks);
                         attacks = popBit(attacks, end);
 
                         if (getBit(occupancyBitboards[1 - sideToMove], end))
@@ -297,13 +352,13 @@ public class Position {
                 }
             } else if (i >> 1 == 3) { // rooks
                 while (pieceBoard != 0) {
-                    int start = getLSBIndex(pieceBoard);
+                    start = getLSBIndex(pieceBoard);
                     pieceBoard = popBit(pieceBoard, start);
 
-                    long attacks = AttackMasks.getRookAttacks(start, occupancyBitboards[2]) & ~occupancyBitboards[sideToMove];
+                    attacks = AttackMasks.getRookAttacks(start, occupancyBitboards[2]) & ~occupancyBitboards[sideToMove];
 
                     while (attacks != 0) {
-                        int end = getLSBIndex(attacks);
+                        end = getLSBIndex(attacks);
                         attacks = popBit(attacks, end);
 
                         if (getBit(occupancyBitboards[1 - sideToMove], end))
@@ -314,13 +369,13 @@ public class Position {
                 }
             } else if (i >> 1 == 4) { // queens
                 while (pieceBoard != 0) {
-                    int start = getLSBIndex(pieceBoard);
+                    start = getLSBIndex(pieceBoard);
                     pieceBoard = popBit(pieceBoard, start);
 
-                    long attacks = AttackMasks.getQueenAttacks(start, occupancyBitboards[2]) & ~occupancyBitboards[sideToMove];
+                    attacks = AttackMasks.getQueenAttacks(start, occupancyBitboards[2]) & ~occupancyBitboards[sideToMove];
 
                     while (attacks != 0) {
-                        int end = getLSBIndex(attacks);
+                        end = getLSBIndex(attacks);
                         attacks = popBit(attacks, end);
 
                         if (getBit(occupancyBitboards[1 - sideToMove], end))

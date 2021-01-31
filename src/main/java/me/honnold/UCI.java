@@ -8,12 +8,9 @@ import me.honnold.util.FEN;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
-import java.io.IOException;
-import java.util.Arrays;
 import java.util.Scanner;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 
 public class UCI {
     private static Logger LOGGER = Logger.getLogger(UCI.class.getName());

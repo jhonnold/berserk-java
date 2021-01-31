@@ -33,6 +33,15 @@ task uci(type: Jar) {
     with jar
 }
 
+task bitboard(type: Jar) {
+    archiveBaseName = 'berserk-bitboard'
+    manifest {
+        attributes 'Main-Class': 'me.honnold.bitboard.Berserk'
+    }
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
+
 run {
     standardInput = System.in
 }
