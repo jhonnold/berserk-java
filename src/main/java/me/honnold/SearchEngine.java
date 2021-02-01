@@ -120,20 +120,11 @@ public class SearchEngine {
 
         if (depth > 2 && !isRoot) {
             next = p.move(null);
-            score = -1 * alphaBeta(-beta, -a, depth - 2, next, false);
+            score = -1 * alphaBeta(-beta, -beta + 1, depth - 3, next, false);
 
             if (score >= beta)
                 return beta;
         }
-
-//            next = p.move(null);
-//            score = -1 * alphaBeta(-beta, -a, depth - 2, next);
-//
-//            if (score > gamma)
-//                gamma = score;
-//
-//            if (gamma > a)
-//                a = gamma;
 
         List<Move> moves = p.generateMoves();
         Move killer = table.getMoveForPosition(p);
@@ -193,8 +184,8 @@ public class SearchEngine {
             Position next = p.move(m);
 
             if (!m.isCapture()) continue;
-            if (p.getScore() + p.getPiece(m.getEnd()).getValues()[119 - m.getEnd()] + 200 < alpha)
-                continue;
+//            if (p.getScore() + p.getPiece(m.getEnd()).getValues()[119 - m.getEnd()] + 200 < alpha)
+//                continue;
 
             score = -1 * quiesce(-beta, -alpha, next);
 

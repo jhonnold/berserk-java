@@ -213,8 +213,8 @@ public class Position {
         return (AttackMasks.KING_ATTACKS[square] & pieceBitboards[10 + bySide]) != 0;
     }
 
-    public List<Move> getMoves() {
-        LinkedList<Move> moves = new LinkedList<>();
+    public Move[] getMoves() {
+        List<Move> moves = new ArrayList<>();
 
         long pieceBoard, attacks;
         int direction = sideToMove == 0 ? -8 : 8;
@@ -232,10 +232,10 @@ public class Position {
                     // off the board or blocked
                     if (!getBit(occupancyBitboards[2], end)) {
                         if ((sideToMove == 0 && start >= 8 && start <= 15) || (sideToMove == 1 && start >= 48 && start <= 55)) {
-                            moves.addFirst(new Move(start, end, i, 8 + sideToMove, false, false, false, false));
-                            moves.addFirst(new Move(start, end, i, 6 + sideToMove, false, false, false, false));
-                            moves.addFirst(new Move(start, end, i, 4 + sideToMove, false, false, false, false));
-                            moves.addFirst(new Move(start, end, i, 2 + sideToMove, false, false, false, false));
+                            moves.add(new Move(start, end, i, 8 + sideToMove, false, false, false, false));
+                            moves.add(new Move(start, end, i, 6 + sideToMove, false, false, false, false));
+                            moves.add(new Move(start, end, i, 4 + sideToMove, false, false, false, false));
+                            moves.add(new Move(start, end, i, 2 + sideToMove, false, false, false, false));
                         } else {
                             moves.add(new Move(start, end, i, -1, false, false, false, false));
                             if ((sideToMove == 0 && start >= 48 && start <= 55) || (sideToMove == 1 && start >= 8 && start <= 15)) {
@@ -252,19 +252,19 @@ public class Position {
                         attacks = popBit(attacks, end);
 
                         if ((sideToMove == 0 && start >= 8 && start <= 15) || (sideToMove == 1 && start >= 48 && start <= 55)) {
-                            moves.addFirst(new Move(start, end, i, 8 + sideToMove, true, false, false, false));
-                            moves.addFirst(new Move(start, end, i, 6 + sideToMove, true, false, false, false));
-                            moves.addFirst(new Move(start, end, i, 4 + sideToMove, true, false, false, false));
-                            moves.addFirst(new Move(start, end, i, 2 + sideToMove, true, false, false, false));
+                            moves.add(new Move(start, end, i, 8 + sideToMove, true, false, false, false));
+                            moves.add(new Move(start, end, i, 6 + sideToMove, true, false, false, false));
+                            moves.add(new Move(start, end, i, 4 + sideToMove, true, false, false, false));
+                            moves.add(new Move(start, end, i, 2 + sideToMove, true, false, false, false));
                         } else {
-                            moves.addFirst(new Move(start, end, i, -1, true, false, false, false));
+                            moves.add(new Move(start, end, i, -1, true, false, false, false));
                         }
                     }
 
                     if (epSquare >= 0) {
                         attacks = AttackMasks.PAWN_ATTACKS[sideToMove][start] & (1L << epSquare);
                         if (attacks != 0) {
-                            moves.addFirst(new Move(start, epSquare, i, -1, false, false, true, false));
+                            moves.add(new Move(start, epSquare, i, -1, false, false, true, false));
                         }
                     }
                 }
@@ -312,7 +312,7 @@ public class Position {
                         attacks = popBit(attacks, end);
 
                         if (getBit(occupancyBitboards[1 - sideToMove], end))
-                            moves.addFirst(new Move(start, end, i, -1, true, false, false, false));
+                            moves.add(new Move(start, end, i, -1, true, false, false, false));
                         else
                             moves.add(new Move(start, end, i, -1, false, false, false, false));
                     }
@@ -329,7 +329,7 @@ public class Position {
                         attacks = popBit(attacks, end);
 
                         if (getBit(occupancyBitboards[1 - sideToMove], end))
-                            moves.addFirst(new Move(start, end, i, -1, true, false, false, false));
+                            moves.add(new Move(start, end, i, -1, true, false, false, false));
                         else
                             moves.add(new Move(start, end, i, -1, false, false, false, false));
                     }
@@ -346,7 +346,7 @@ public class Position {
                         attacks = popBit(attacks, end);
 
                         if (getBit(occupancyBitboards[1 - sideToMove], end))
-                            moves.addFirst(new Move(start, end, i, -1, true, false, false, false));
+                            moves.add(new Move(start, end, i, -1, true, false, false, false));
                         else
                             moves.add(new Move(start, end, i, -1, false, false, false, false));
                     }
@@ -363,7 +363,7 @@ public class Position {
                         attacks = popBit(attacks, end);
 
                         if (getBit(occupancyBitboards[1 - sideToMove], end))
-                            moves.addFirst(new Move(start, end, i, -1, true, false, false, false));
+                            moves.add(new Move(start, end, i, -1, true, false, false, false));
                         else
                             moves.add(new Move(start, end, i, -1, false, false, false, false));
                     }
@@ -380,7 +380,7 @@ public class Position {
                         attacks = popBit(attacks, end);
 
                         if (getBit(occupancyBitboards[1 - sideToMove], end))
-                            moves.addFirst(new Move(start, end, i, -1, true, false, false, false));
+                            moves.add(new Move(start, end, i, -1, true, false, false, false));
                         else
                             moves.add(new Move(start, end, i, -1, false, false, false, false));
                     }
@@ -388,7 +388,18 @@ public class Position {
             }
         }
 
-        return moves;
+        return moves.toArray(new Move[0]);
+    }
+
+    public int getCapturedPieceIdx(int captureSquare) {
+        for (int i = 0; i < 12; i++) {
+            long bb = pieceBitboards[i];
+
+            if (getBit(bb, captureSquare))
+                return i;
+        }
+
+        return -1;
     }
 
     @Override

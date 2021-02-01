@@ -1,7 +1,7 @@
 package me.honnold.bitboard;
 
 public class Random {
-    private static int state = 1804289383;
+    private static int state = 123;
 
     public static int getRandomInt() {
         int number = state;

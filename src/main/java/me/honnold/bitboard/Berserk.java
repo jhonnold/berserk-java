@@ -33,6 +33,8 @@ public class Berserk {
             } else if ("perft".equals(line)) {
                 Perft.runPerft("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq -", 5);
             } else if (line.startsWith("position")) {
+                Repetitions.clear();
+
                 line = line.substring(9).concat(" ");
                 if (line.contains("startpos ")) {
                     line = line.substring(9);
@@ -59,7 +61,7 @@ public class Berserk {
                         }
 
                         Move foundMove = null;
-                        Iterable<Move> positionMoves = p.getMoves();
+                        Move[] positionMoves = p.getMoves();
                         for (Move m : positionMoves) {
                             if (m.start == start && m.end == end && m.promotionPiece == promotionPiece) {
                                 foundMove = m;
@@ -69,6 +71,7 @@ public class Berserk {
 
                         if (foundMove == null) throw new RuntimeException("Move not found! " + moveString);
                         p.makeMove(foundMove);
+                        Repetitions.positions[Repetitions.idx++] = p.zHash;
                     }
                 }
             } else if (line.startsWith("go")) {

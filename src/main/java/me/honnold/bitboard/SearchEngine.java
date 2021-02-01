@@ -2,12 +2,17 @@ package me.honnold.bitboard;
 
 import org.apache.commons.lang3.tuple.Pair;
 
-import java.util.List;
+import java.util.Arrays;
+
+import static me.honnold.bitboard.BoardUtils.getBit;
 
 public class SearchEngine {
     public static final int CHECKMATE_MIN = 50710;
     public static final int CHECKMATE_MAX = 69290;
-    public static final int MAX_DEPTH = 8;
+    public static final int MAX_DEPTH = 32;
+    public static final int MAX_TIME = 2500;
+
+    public static final int[][] historyCache = new int[12][64];
 
     public int nodes = 0;
     public int hits = 0;
@@ -17,22 +22,25 @@ public class SearchEngine {
 
     public Pair<Move, Integer> bestMove(Position p) {
         table.clear();
+        for (int[] ints : historyCache) Arrays.fill(ints, 0);
+
         nodes = 0;
         hits = 0;
 
         this.startTime = System.currentTimeMillis();
-        int score = search(p);
+        int score = searchMtdbi(p);
         return Pair.of(table.getMoveForPosition(p), score);
     }
 
-    public int search(Position p) {
+    public int searchMtdbi(Position p) {
         int score = 0;
         for (int depth = 1; depth <= MAX_DEPTH; depth++) {
-            score = mtdf(-score, depth, p);
+            score = mtdbi(score, depth, p);
 
             long now = System.currentTimeMillis();
             System.out.printf("info depth %d score cp %d nodes %d nps %.0f pv %s%n", depth, score, nodes, (double) nodes / (now - this.startTime) * 1000, getPv(p, depth));
-            if (Math.abs(score) == CHECKMATE_MAX) break;
+
+            if (Math.abs(score) >= CHECKMATE_MIN || now - this.startTime > MAX_TIME) break;
         }
 
         return score;
@@ -54,14 +62,14 @@ public class SearchEngine {
         return builder.toString();
     }
 
-    public int mtdf(int guess, int depth, Position p) {
+    public int mtdbi(int guess, int depth, Position p) {
         int upper = CHECKMATE_MAX;
         int lower = -CHECKMATE_MAX;
         int beta = guess;
         int gamma;
 
         do {
-            gamma = alphaBeta(beta - 1, beta, depth, p, true);
+            gamma = alphaBeta(beta - 1, beta, depth, 0, p);
 
             if (gamma < beta)
                 upper = gamma;
@@ -69,19 +77,15 @@ public class SearchEngine {
                 lower = gamma;
 
             beta = (lower + upper + 1) / 2;
-        } while (lower < upper);
+        } while (lower < upper - 13);
 
         return gamma;
     }
 
-    public int alphaBeta(int alpha, int beta, int depth, Position p, boolean isRoot) {
-        depth = Math.max(0, depth);
-
-        if (p.value <= -CHECKMATE_MIN)
-            return -CHECKMATE_MAX;
+    public int alphaBeta(int alpha, int beta, int depth, int ply, Position p) {
+        if (ply > 0 && Repetitions.isRepetition(p)) return 0;
 
         boolean inCheck = p.isSquareAttacked(BoardUtils.getLSBIndex(p.pieceBitboards[10 + p.sideToMove]), 1 - p.sideToMove);
-
         if (inCheck) depth++;
 
         if (depth == 0) return quiesce(alpha, beta, p);
@@ -108,8 +112,10 @@ public class SearchEngine {
         Position next;
 
         // null move pruning
-        if (depth >= 3 && !inCheck) {
+        if (depth >= 3 && !inCheck && ply > 0) {
             next = new Position(p);
+
+            Repetitions.positions[Repetitions.idx++] = p.zHash;
 
             // Make the null move
             if (next.epSquare != -1) next.zHash ^= ZobristHash.epKeys[next.epSquare];
@@ -119,40 +125,94 @@ public class SearchEngine {
             next.zHash ^= ZobristHash.sideKey;
             next.value = -next.value;
 
-            score = -1 * alphaBeta(-beta, -beta + 1, depth - 3, next, false);
+            score = -1 * alphaBeta(-beta, -alpha, depth - 3, ply + 1, next);
+
+            Repetitions.idx--;
 
             if (score >= beta)
                 return beta;
         }
 
-        List<Move> moves = p.getMoves();
-
+        Move[] moves = p.getMoves();
         Move killer = table.getMoveForPosition(p);
-        if (killer != null)
-            moves.add(0, killer);
 
-        for (int i = 1; i <= moves.size(); i++) {
+       Arrays.sort(moves,(m1, m2) -> {
+           if (m1.equals(m2)) return 0;
+           if (m1.equals(killer)) return -1;
+           if (m2.equals(killer)) return 1;
+
+           if (m1.capture && m2.capture) {
+               int move1Capture = -1, move2Capture = -1;
+               for (int i = 0; i < 12; i++) {
+                   long bb = p.pieceBitboards[i];
+
+                   if (getBit(bb, m1.end))
+                       move1Capture = i;
+
+                   if (getBit(bb, m2.end))
+                       move2Capture = i;
+
+                   if (move1Capture >= 0 && move2Capture >= 0) break;
+               }
+
+               return Piece.mvvLva[m2.pieceIdx][move2Capture] - Piece.mvvLva[m1.pieceIdx][move1Capture];
+           } else if (m1.capture) {
+               return -1;
+           } else if (m2.capture) {
+               return 1;
+           } else {
+               return historyCache[m2.pieceIdx][m2.end] - historyCache[m1.pieceIdx][m1.end];
+           }
+       });
+
+        boolean hasLegalMove = false;
+
+        int searchedMoves = 0;
+        for (Move m : moves) {
             if (gamma >= beta) break;
-
-            Move m = moves.get(i - 1);
-            if (isRoot)
-                System.out.printf("info depth %d currmove %s currmovenumber %d%n",  depth, m, i);
 
             next = new Position(p);
             boolean isValid = next.makeMove(m);
             if (!isValid) continue;
 
-            score = -alphaBeta(-beta, -a, depth - 1, next, false);
+            Repetitions.positions[Repetitions.idx++] = p.zHash;
+
+            hasLegalMove = true;
+
+            if (searchedMoves == 0)
+                score = -alphaBeta(-beta, -a, depth - 1, ply + 1, next);
+            else {
+                if (searchedMoves >= 4 && depth >= 3 && !inCheck && !m.capture && m.promotionPiece == -1) {
+                    score = -alphaBeta(-a - 1, -a, depth - 2, ply + 1, next);
+                } else score = a + 1;
+
+                if (score > a) {
+                    score = -alphaBeta(-a - 1, -a, depth - 1, ply + 1, next);
+
+                    if (score > a && score < beta)
+                        score = -alphaBeta(-beta, -a, depth - 1, ply + 1, next);
+                }
+            }
+
+            Repetitions.idx--;
+
+            searchedMoves++;
 
             if (score > gamma)
                 gamma = score;
 
             if (gamma > a) {
                 a = gamma;
+
+                if (!m.capture)
+                    historyCache[m.pieceIdx][m.end] = gamma;
+
                 table.putMoveForPosition(p, m);
             }
-
         }
+
+        if (!hasLegalMove)
+            return inCheck ? -CHECKMATE_MAX : 0;
 
         if (gamma <= alpha) {
             table.putEvaluationForPosition(p, depth, -CHECKMATE_MAX, gamma);
@@ -170,19 +230,24 @@ public class SearchEngine {
 
         int score = p.value;
 
-        if (score <= -CHECKMATE_MIN)
-            return -CHECKMATE_MAX;
-
         if (score >= beta)
             return beta;
 
         if (alpha < score)
             alpha = score;
 
-        List<Move> moves = p.getMoves();
+        Move[] moves = p.getMoves();
 
         for (Move m : moves) {
-            if (!m.capture && !m.epCapture) continue;
+            if (!m.capture && !m.epCapture && m.promotionPiece == -1) continue;
+
+            if (m.capture || m.epCapture) {
+                int capturedIdx = m.epCapture ? 1 - p.sideToMove : p.getCapturedPieceIdx(m.end);
+                int captureSq = m.epCapture ? m.end + (p.sideToMove == 0 ? -8 : 8) : m.end;
+
+                if (p.value + Piece.baseValues[capturedIdx >> 1] + Piece.squareValues[capturedIdx][captureSq] + 200 < alpha)
+                    continue;
+            }
 
             Position next = new Position(p);
             boolean isValid = next.makeMove(m);
@@ -192,6 +257,7 @@ public class SearchEngine {
 
             if (score >= beta)
                 return beta;
+
             if (score > alpha)
                 alpha = score;
         }

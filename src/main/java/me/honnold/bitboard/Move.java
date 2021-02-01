@@ -22,6 +22,23 @@ public class Move {
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (o == this) return true;
+        if (!(o instanceof Move)) return false;
+
+        Move other = (Move) o;
+
+        return other.start == start &&
+                other.end == end &&
+                other.pieceIdx == pieceIdx &&
+                other.promotionPiece == promotionPiece &&
+                other.capture == capture &&
+                other.doublePush == doublePush &&
+                other.epCapture == epCapture &&
+                other.castle == castle;
+    }
+
+    @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append(Position.squares[start]).append(Position.squares[end]);
