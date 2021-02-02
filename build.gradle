@@ -11,7 +11,7 @@ repositories {
 }
 
 dependencies {
-    compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.11'
+    implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.11'
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
@@ -21,24 +21,21 @@ test {
     useJUnitPlatform()
 }
 
+project.configurations {
+    implementation.canBeResolved = true
+}
+
 application {
     mainClass = 'me.honnold.Berserk'
 }
 
-task uci(type: Jar) {
-    manifest {
-        attributes 'Main-Class': 'me.honnold.UCI'
-    }
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
-    with jar
-}
+task assembleJar(type: Jar) {
+    archiveBaseName = 'berserk'
 
-task bitboard(type: Jar) {
-    archiveBaseName = 'berserk-bitboard'
     manifest {
-        attributes 'Main-Class': 'me.honnold.bitboard.Berserk'
+        attributes 'Main-Class': 'me.honnold.berserk.Berserk'
     }
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    from { configurations.implementation.collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
 }
 

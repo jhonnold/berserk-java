@@ -1,4 +1,4 @@
-package me.honnold.bitboard;
+package me.honnold.berserk;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;

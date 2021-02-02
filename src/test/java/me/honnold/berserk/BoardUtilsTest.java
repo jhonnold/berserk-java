@@ -1,8 +1,8 @@
-package me.honnold.bitboard;
+package me.honnold.berserk;
 
 import org.junit.jupiter.api.Test;
 
-import static me.honnold.bitboard.BoardUtils.*;
+import static me.honnold.berserk.BoardUtils.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BoardUtilsTest {
