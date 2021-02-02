@@ -1,4 +1,4 @@
-package me.honnold.bitboard;
+package me.honnold.berserk;
 
 import java.util.Arrays;
 
@@ -8,28 +8,11 @@ public class TranspositionTable {
     private final Evaluation[] evaluations = new Evaluation[TABLE_SIZE];
     private final MoveEntry[] moves = new MoveEntry[TABLE_SIZE];
 
-    public static class Evaluation {
-        public final long hash;
-        public final int depth;
-        public final int alpha;
-        public final int beta;
-
-        public Evaluation(long hash, int depth, int alpha, int beta) {
-            this.hash = hash;
-            this.depth = depth;
-            this.alpha = alpha;
-            this.beta = beta;
-        }
+    private TranspositionTable() {
     }
 
-    public static class MoveEntry {
-        public final long hash;
-        public final Move move;
-
-        public MoveEntry(long hash, Move move) {
-            this.hash = hash;
-            this.move = move;
-        }
+    public static TranspositionTable getInstance() {
+        return new TranspositionTable();
     }
 
     public void clear() {
@@ -73,5 +56,29 @@ public class TranspositionTable {
         int idx = getTableIndex(p.zHash);
 
         moves[idx] = new MoveEntry(p.zHash, m);
+    }
+
+    public static class Evaluation {
+        public final long hash;
+        public final int depth;
+        public final int alpha;
+        public final int beta;
+
+        public Evaluation(long hash, int depth, int alpha, int beta) {
+            this.hash = hash;
+            this.depth = depth;
+            this.alpha = alpha;
+            this.beta = beta;
+        }
+    }
+
+    public static class MoveEntry {
+        public final long hash;
+        public final Move move;
+
+        public MoveEntry(long hash, Move move) {
+            this.hash = hash;
+            this.move = move;
+        }
     }
 }

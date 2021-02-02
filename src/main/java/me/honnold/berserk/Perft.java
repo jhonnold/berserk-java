@@ -1,4 +1,4 @@
-package me.honnold.bitboard;
+package me.honnold.berserk;
 
 public class Perft {
     public static long runPerft(String fen, int depth) {

@@ -1,4 +1,4 @@
-package me.honnold.bitboard;
+package me.honnold.berserk;
 
 public class Move {
     public int start;

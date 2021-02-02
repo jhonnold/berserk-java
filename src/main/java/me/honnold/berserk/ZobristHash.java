@@ -1,7 +1,7 @@
-package me.honnold.bitboard;
+package me.honnold.berserk;
 
-import static me.honnold.bitboard.BoardUtils.getLSBIndex;
-import static me.honnold.bitboard.BoardUtils.popBit;
+import static me.honnold.berserk.BoardUtils.getLSBIndex;
+import static me.honnold.berserk.BoardUtils.popBit;
 
 public class ZobristHash {
     public static final long[][] pieceKeys;

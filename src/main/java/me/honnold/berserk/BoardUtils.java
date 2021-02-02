@@ -1,4 +1,4 @@
-package me.honnold.bitboard;
+package me.honnold.berserk;
 
 public class BoardUtils {
     public static boolean getBit(long bitboard, int bit) {

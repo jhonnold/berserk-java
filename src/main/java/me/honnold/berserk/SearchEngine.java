@@ -1,49 +1,52 @@
-package me.honnold.bitboard;
-
-import org.apache.commons.lang3.tuple.Pair;
+package me.honnold.berserk;
 
 import java.util.Arrays;
 
-import static me.honnold.bitboard.BoardUtils.getBit;
+import static me.honnold.berserk.BoardUtils.getBit;
 
 public class SearchEngine {
     public static final int CHECKMATE_MIN = 50710;
     public static final int CHECKMATE_MAX = 69290;
     public static final int MAX_DEPTH = 32;
-    public static final int MAX_TIME = 2500;
 
     public static final int[][] historyCache = new int[12][64];
-
+    public final TranspositionTable table;
+    public final Repetitions repetitions;
     public int nodes = 0;
     public int hits = 0;
-    public long startTime = 0;
+    private boolean running = false;
 
-    TranspositionTable table = new TranspositionTable();
-
-    public Pair<Move, Integer> bestMove(Position p) {
-        table.clear();
-        for (int[] ints : historyCache) Arrays.fill(ints, 0);
-
-        nodes = 0;
-        hits = 0;
-
-        this.startTime = System.currentTimeMillis();
-        int score = searchMtdbi(p);
-        return Pair.of(table.getMoveForPosition(p), score);
+    public SearchEngine(TranspositionTable table, Repetitions repetitions) {
+        this.table = table;
+        this.repetitions = repetitions;
     }
 
     public int searchMtdbi(Position p) {
+        running = true;
+        table.clear();
+        long startTime = System.currentTimeMillis();
+
         int score = 0;
+
         for (int depth = 1; depth <= MAX_DEPTH; depth++) {
             score = mtdbi(score, depth, p);
 
             long now = System.currentTimeMillis();
-            System.out.printf("info depth %d score cp %d nodes %d nps %.0f pv %s%n", depth, score, nodes, (double) nodes / (now - this.startTime) * 1000, getPv(p, depth));
+            System.out.printf("info depth %d score cp %d nodes %d nps %.0f pv %s%n", depth, score, nodes, (double) nodes / (now - startTime) * 1000, getPv(p, depth));
 
-            if (Math.abs(score) >= CHECKMATE_MIN || now - this.startTime > MAX_TIME) break;
+            if (!running || Math.abs(score) >= CHECKMATE_MIN) break;
         }
 
+        running = false;
         return score;
+    }
+
+    public boolean isRunning() {
+        return this.running;
+    }
+
+    public void interrupt() {
+        this.running = false;
     }
 
     private String getPv(Position p, int depth) {
@@ -83,7 +86,7 @@ public class SearchEngine {
     }
 
     public int alphaBeta(int alpha, int beta, int depth, int ply, Position p) {
-        if (ply > 0 && Repetitions.isRepetition(p)) return 0;
+        if (ply > 0 && repetitions.isRepetition(p)) return 0;
 
         boolean inCheck = p.isSquareAttacked(BoardUtils.getLSBIndex(p.pieceBitboards[10 + p.sideToMove]), 1 - p.sideToMove);
         if (inCheck) depth++;
@@ -115,7 +118,7 @@ public class SearchEngine {
         if (depth >= 3 && !inCheck && ply > 0) {
             next = new Position(p);
 
-            Repetitions.positions[Repetitions.idx++] = p.zHash;
+            repetitions.setCurrentPosition(p.zHash);
 
             // Make the null move
             if (next.epSquare != -1) next.zHash ^= ZobristHash.epKeys[next.epSquare];
@@ -127,7 +130,10 @@ public class SearchEngine {
 
             score = -1 * alphaBeta(-beta, -alpha, depth - 3, ply + 1, next);
 
-            Repetitions.idx--;
+            repetitions.decrement();
+
+            if (!running)
+                return 0;
 
             if (score >= beta)
                 return beta;
@@ -136,34 +142,34 @@ public class SearchEngine {
         Move[] moves = p.getMoves();
         Move killer = table.getMoveForPosition(p);
 
-       Arrays.sort(moves,(m1, m2) -> {
-           if (m1.equals(m2)) return 0;
-           if (m1.equals(killer)) return -1;
-           if (m2.equals(killer)) return 1;
+        Arrays.sort(moves, (m1, m2) -> {
+            if (m1.equals(m2)) return 0;
+            if (m1.equals(killer)) return -1;
+            if (m2.equals(killer)) return 1;
 
-           if (m1.capture && m2.capture) {
-               int move1Capture = -1, move2Capture = -1;
-               for (int i = 0; i < 12; i++) {
-                   long bb = p.pieceBitboards[i];
+            if (m1.capture && m2.capture) {
+                int move1Capture = -1, move2Capture = -1;
+                for (int i = 0; i < 12; i++) {
+                    long bb = p.pieceBitboards[i];
 
-                   if (getBit(bb, m1.end))
-                       move1Capture = i;
+                    if (getBit(bb, m1.end))
+                        move1Capture = i;
 
-                   if (getBit(bb, m2.end))
-                       move2Capture = i;
+                    if (getBit(bb, m2.end))
+                        move2Capture = i;
 
-                   if (move1Capture >= 0 && move2Capture >= 0) break;
-               }
+                    if (move1Capture >= 0 && move2Capture >= 0) break;
+                }
 
-               return Piece.mvvLva[m2.pieceIdx][move2Capture] - Piece.mvvLva[m1.pieceIdx][move1Capture];
-           } else if (m1.capture) {
-               return -1;
-           } else if (m2.capture) {
-               return 1;
-           } else {
-               return historyCache[m2.pieceIdx][m2.end] - historyCache[m1.pieceIdx][m1.end];
-           }
-       });
+                return Piece.mvvLva[m2.pieceIdx][move2Capture] - Piece.mvvLva[m1.pieceIdx][move1Capture];
+            } else if (m1.capture) {
+                return -1;
+            } else if (m2.capture) {
+                return 1;
+            } else {
+                return historyCache[m2.pieceIdx][m2.end] - historyCache[m1.pieceIdx][m1.end];
+            }
+        });
 
         boolean hasLegalMove = false;
 
@@ -175,7 +181,7 @@ public class SearchEngine {
             boolean isValid = next.makeMove(m);
             if (!isValid) continue;
 
-            Repetitions.positions[Repetitions.idx++] = p.zHash;
+            repetitions.setCurrentPosition(p.zHash);
 
             hasLegalMove = true;
 
@@ -194,7 +200,9 @@ public class SearchEngine {
                 }
             }
 
-            Repetitions.idx--;
+            repetitions.decrement();
+
+            if (!running) return 0;
 
             searchedMoves++;
 
@@ -254,6 +262,8 @@ public class SearchEngine {
             if (!isValid) continue;
 
             score = -1 * quiesce(-beta, -alpha, next);
+
+            if (!running) return 0;
 
             if (score >= beta)
                 return beta;

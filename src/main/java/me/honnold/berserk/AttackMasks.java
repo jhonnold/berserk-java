@@ -1,8 +1,8 @@
-package me.honnold.bitboard;
+package me.honnold.berserk;
 
 import java.util.Arrays;
 
-import static me.honnold.bitboard.BoardUtils.*;
+import static me.honnold.berserk.BoardUtils.*;
 
 public class AttackMasks {
     public static final long[][] PAWN_ATTACKS;

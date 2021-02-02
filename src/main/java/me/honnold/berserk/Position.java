@@ -1,13 +1,12 @@
-package me.honnold.bitboard;
+package me.honnold.berserk;
 
 import org.apache.commons.lang3.ArrayUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 
-import static me.honnold.bitboard.BoardUtils.*;
+import static me.honnold.berserk.BoardUtils.*;
 
 public class Position {
     public static final String[] squares = {
