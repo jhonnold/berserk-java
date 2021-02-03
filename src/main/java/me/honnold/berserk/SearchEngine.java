@@ -5,7 +5,6 @@ import java.util.Arrays;
 import static me.honnold.berserk.BoardUtils.getBit;
 
 public class SearchEngine {
-    public static final int CHECKMATE_MIN = 50710;
     public static final int CHECKMATE_MAX = 69290;
     public static final int MAX_DEPTH = 32;
 
@@ -24,6 +23,7 @@ public class SearchEngine {
     public int searchMtdbi(Position p) {
         running = true;
         table.clear();
+
         long startTime = System.currentTimeMillis();
 
         int score = 0;
@@ -31,10 +31,15 @@ public class SearchEngine {
         for (int depth = 1; depth <= MAX_DEPTH; depth++) {
             score = mtdbi(score, depth, p);
 
-            long now = System.currentTimeMillis();
-            System.out.printf("info depth %d score cp %d nodes %d nps %.0f pv %s%n", depth, score, nodes, (double) nodes / (now - startTime) * 1000, getPv(p, depth));
+            if (!running) break;
 
-            if (!running || Math.abs(score) >= CHECKMATE_MIN) break;
+            StringBuilder output = new StringBuilder();
+            output.append("info depth ").append(depth)
+                    .append(" score ").append(score)
+                    .append(" nodes ").append(nodes)
+                    .append(" nps ").append(String.format("%.0f", 1000.0 * nodes / (System.currentTimeMillis() - startTime)))
+                    .append(" pv ").append(getPv(p));
+            System.out.println(output);
         }
 
         running = false;
@@ -49,11 +54,12 @@ public class SearchEngine {
         this.running = false;
     }
 
-    private String getPv(Position p, int depth) {
+    private String getPv(Position p) {
         StringBuilder builder = new StringBuilder();
         Move m = table.getMoveForPosition(p);
 
-        while (m != null && depth-- > 0) {
+        int iterations = 0;
+        while (m != null && iterations++ <= 24) {
             builder.append(m.toString())
                     .append(" ");
 
@@ -86,7 +92,13 @@ public class SearchEngine {
     }
 
     public int alphaBeta(int alpha, int beta, int depth, int ply, Position p) {
-        if (ply > 0 && repetitions.isRepetition(p)) return 0;
+        int mateMaxValue = CHECKMATE_MAX - ply;
+
+        if (mateMaxValue < beta) {
+            beta = mateMaxValue;
+            if (alpha >= mateMaxValue) return mateMaxValue;
+        }
+
 
         boolean inCheck = p.isSquareAttacked(BoardUtils.getLSBIndex(p.pieceBitboards[10 + p.sideToMove]), 1 - p.sideToMove);
         if (inCheck) depth++;
@@ -109,13 +121,12 @@ public class SearchEngine {
             }
         }
 
-        int gamma = -CHECKMATE_MAX;
-        int a = alpha;
-        int score;
+        int gamma = -CHECKMATE_MAX, a = alpha, score;
         Position next;
 
         // null move pruning
         if (depth >= 3 && !inCheck && ply > 0) {
+            int R = depth > 6 ? 4 : 3;
             next = new Position(p);
 
             repetitions.setCurrentPosition(p.zHash);
@@ -128,24 +139,24 @@ public class SearchEngine {
             next.zHash ^= ZobristHash.sideKey;
             next.value = -next.value;
 
-            score = -1 * alphaBeta(-beta, -alpha, depth - 3, ply + 1, next);
+            score = -1 * alphaBeta(-beta, -beta + 1, depth - R, ply + 1, next);
 
             repetitions.decrement();
+            if (!running) return 0;
 
-            if (!running)
-                return 0;
-
-            if (score >= beta)
-                return beta;
+            if (score >= beta) {
+                depth -= 4;
+                if (depth <= 0) return quiesce(alpha, beta, p);
+            }
         }
 
         Move[] moves = p.getMoves();
-        Move killer = table.getMoveForPosition(p);
+        Move pv = table.getMoveForPosition(p);
 
         Arrays.sort(moves, (m1, m2) -> {
             if (m1.equals(m2)) return 0;
-            if (m1.equals(killer)) return -1;
-            if (m2.equals(killer)) return 1;
+            if (m1.equals(pv)) return -1;
+            if (m2.equals(pv)) return 1;
 
             if (m1.capture && m2.capture) {
                 int move1Capture = -1, move2Capture = -1;
@@ -173,7 +184,7 @@ public class SearchEngine {
 
         boolean hasLegalMove = false;
 
-        int searchedMoves = 0;
+        int fullDepthSearches = 0;
         for (Move m : moves) {
             if (gamma >= beta) break;
 
@@ -181,30 +192,25 @@ public class SearchEngine {
             boolean isValid = next.makeMove(m);
             if (!isValid) continue;
 
-            repetitions.setCurrentPosition(p.zHash);
+            if (repetitions.isRepetition(next))
+                return 0;
 
+            repetitions.setCurrentPosition(p.zHash);
             hasLegalMove = true;
 
-            if (searchedMoves == 0)
+            if (fullDepthSearches < 4 || depth < 3 || inCheck || m.capture || m.epCapture || m.promotionPiece != -1) {
                 score = -alphaBeta(-beta, -a, depth - 1, ply + 1, next);
-            else {
-                if (searchedMoves >= 4 && depth >= 3 && !inCheck && !m.capture && m.promotionPiece == -1) {
-                    score = -alphaBeta(-a - 1, -a, depth - 2, ply + 1, next);
-                } else score = a + 1;
+            } else {
+                score = -alphaBeta(-a - 1, -a, depth - 2, ply + 1, next);
 
-                if (score > a) {
-                    score = -alphaBeta(-a - 1, -a, depth - 1, ply + 1, next);
-
-                    if (score > a && score < beta)
-                        score = -alphaBeta(-beta, -a, depth - 1, ply + 1, next);
-                }
+                if (score > a && score < beta)
+                    score = -alphaBeta(-beta, -a, depth - 1, ply + 1, next);
             }
 
             repetitions.decrement();
+            fullDepthSearches++;
 
             if (!running) return 0;
-
-            searchedMoves++;
 
             if (score > gamma)
                 gamma = score;
@@ -212,15 +218,13 @@ public class SearchEngine {
             if (gamma > a) {
                 a = gamma;
 
-                if (!m.capture)
-                    historyCache[m.pieceIdx][m.end] = gamma;
-
+                if (!m.capture) historyCache[m.pieceIdx][m.end] = gamma;
                 table.putMoveForPosition(p, m);
             }
         }
 
         if (!hasLegalMove)
-            return inCheck ? -CHECKMATE_MAX : 0;
+            return inCheck ? -mateMaxValue : 0;
 
         if (gamma <= alpha) {
             table.putEvaluationForPosition(p, depth, -CHECKMATE_MAX, gamma);
