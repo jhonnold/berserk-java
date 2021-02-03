@@ -39,8 +39,11 @@ public class Position {
     public int sideToMove;
     public int castling;
     public int epSquare;
-    public int value = 0;
+    private int value = 0;
     public long zHash = 0;
+    private long pawnHash = 0;
+    private int pawnValue = 0;
+    public int[] pawnDirections = { -8, 8 };
 
     public Position(String fen) {
         String[] parts = fen.split("\\s+");
@@ -73,7 +76,10 @@ public class Position {
         occupancyBitboards[2] = occupancyBitboards[0] | occupancyBitboards[1];
 
         this.value = 0;
+
         this.zHash = ZobristHash.generate(this);
+        this.pawnHash = ZobristHash.generatePawn(this);
+        this.pawnValue = PositionEvaluations.getInstance().evaluatePawnStructure(this);
     }
 
     public Position(Position p) {
@@ -88,6 +94,15 @@ public class Position {
         this.epSquare = p.epSquare;
         this.value = p.value;
         this.zHash = p.zHash;
+        this.pawnValue = p.pawnValue;
+    }
+
+    public void invertValue() {
+        this.value = -this.value;
+    }
+
+    public int getValue() {
+        return this.value + this.pawnValue;
     }
 
     public boolean makeMove(Move m) {
@@ -99,10 +114,12 @@ public class Position {
         this.pieceBitboards[piece] = popBit(this.pieceBitboards[piece], start);
         this.value -= (Piece.squareValues[piece][start]);
         this.zHash ^= ZobristHash.pieceKeys[piece][start];
+        if (piece <= 1) this.pawnHash ^= ZobristHash.pieceKeys[piece][start];
 
         this.pieceBitboards[piece] = setBit(this.pieceBitboards[piece], end);
         this.value += (Piece.squareValues[piece][end]);
         this.zHash ^= ZobristHash.pieceKeys[piece][end];
+        if (piece <= 1) this.pawnHash ^= ZobristHash.pieceKeys[piece][end];
 
         if (m.capture) {
             for (int i = (1 - sideToMove); i < 12; i += 2) {
@@ -110,6 +127,7 @@ public class Position {
                     this.pieceBitboards[i] = popBit(this.pieceBitboards[i], end);
                     this.value += (Piece.baseValues[i >> 1] + Piece.squareValues[i][end]);
                     this.zHash ^= ZobristHash.pieceKeys[i][end];
+                    if (i <= 1) this.pawnHash ^= ZobristHash.pieceKeys[i][end];
                     break;
                 }
             }
@@ -119,6 +137,7 @@ public class Position {
             this.pieceBitboards[sideToMove] = popBit(this.pieceBitboards[sideToMove], end);
             this.value -= (Piece.baseValues[0] + Piece.squareValues[sideToMove][end]);
             this.zHash ^= ZobristHash.pieceKeys[sideToMove][end];
+            this.pawnHash ^= ZobristHash.pieceKeys[sideToMove][end];
 
             this.pieceBitboards[promotionPiece] = setBit(this.pieceBitboards[promotionPiece], end);
             this.value += (Piece.baseValues[promotionPiece >> 1] + Piece.squareValues[promotionPiece >> 1][end]);
@@ -126,9 +145,10 @@ public class Position {
         }
 
         if (m.epCapture) {
-            this.pieceBitboards[1 - sideToMove] = popBit(this.pieceBitboards[1 - sideToMove], end + (sideToMove == 0 ? 8 : -8));
-            this.value += (Piece.baseValues[0] + Piece.squareValues[1 - sideToMove][end + (sideToMove == 0 ? 8 : -8)]);
-            this.zHash ^= ZobristHash.pieceKeys[1 - sideToMove][end - (sideToMove == 0 ? 8 : -8)];
+            this.pieceBitboards[1 - sideToMove] = popBit(this.pieceBitboards[1 - sideToMove], end - this.pawnDirections[this.sideToMove]);
+            this.value += (Piece.baseValues[0] + Piece.squareValues[1 - sideToMove][end - this.pawnDirections[this.sideToMove]]);
+            this.zHash ^= ZobristHash.pieceKeys[1 - sideToMove][end - this.pawnDirections[this.sideToMove]];
+            this.pawnHash ^= ZobristHash.pieceKeys[1 - sideToMove][end - this.pawnDirections[this.sideToMove]];
         }
 
         if (this.epSquare != -1) {
@@ -137,7 +157,7 @@ public class Position {
         }
 
         if (m.doublePush) {
-            this.epSquare = end + (sideToMove == 0 ? 8 : -8);
+            this.epSquare = end - pawnDirections[this.sideToMove];
             this.zHash ^= ZobristHash.epKeys[this.epSquare];
         }
 
@@ -194,7 +214,9 @@ public class Position {
         occupancyBitboards[2] = occupancyBitboards[0] | occupancyBitboards[1];
 
         this.sideToMove = 1 - this.sideToMove;
+
         this.value = -this.value;
+        this.pawnValue = PositionEvaluations.getInstance().evaluatePawnStructure(this);
 
         return !isSquareAttacked(getLSBIndex(this.pieceBitboards[11 - this.sideToMove]), this.sideToMove);
     }
@@ -438,5 +460,9 @@ public class Position {
 
 
         return builder.append("\n\n").toString();
+    }
+
+    public long getPawnHash() {
+        return pawnHash;
     }
 }

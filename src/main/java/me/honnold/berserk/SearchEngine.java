@@ -6,14 +6,16 @@ import static me.honnold.berserk.BoardUtils.getBit;
 
 public class SearchEngine {
     public static final int CHECKMATE_MAX = 69290;
-    public static final int MAX_DEPTH = 32;
+    public static final int CHECKMATE_MIN = 50710;
+    public static final int MAX_DEPTH = 100;
 
-    public static final int[][] historyCache = new int[12][64];
+    public static final int[][] historyCache = new int[12][200];
     public final TranspositionTable table;
     public final Repetitions repetitions;
     public int nodes = 0;
     public int hits = 0;
     private boolean running = false;
+    public static boolean inNullSearch = false;
 
     public SearchEngine(TranspositionTable table, Repetitions repetitions) {
         this.table = table;
@@ -22,6 +24,7 @@ public class SearchEngine {
 
     public int searchMtdbi(Position p) {
         running = true;
+        nodes = 0;
         table.clear();
 
         long startTime = System.currentTimeMillis();
@@ -33,9 +36,16 @@ public class SearchEngine {
 
             if (!running) break;
 
+            String scoreUnit = Math.abs(score) >= CHECKMATE_MIN ? "mate " : "cp ";
+            int scoreValue = Math.abs(score) <= CHECKMATE_MIN ? score
+                    : score < -CHECKMATE_MIN ? -((CHECKMATE_MAX + score) / 2 + 1)
+                    : (CHECKMATE_MAX - score) / 2 + 1;
+
             StringBuilder output = new StringBuilder();
             output.append("info depth ").append(depth)
-                    .append(" score ").append(score)
+                    .append(" score ")
+                    .append(scoreUnit)
+                    .append(scoreValue)
                     .append(" nodes ").append(nodes)
                     .append(" nps ").append(String.format("%.0f", 1000.0 * nodes / (System.currentTimeMillis() - startTime)))
                     .append(" pv ").append(getPv(p));
@@ -125,7 +135,7 @@ public class SearchEngine {
         Position next;
 
         // null move pruning
-        if (depth >= 3 && !inCheck && ply > 0) {
+        if (depth >= 3 && !inCheck && ply > 0 && !inNullSearch) {
             int R = depth > 6 ? 4 : 3;
             next = new Position(p);
 
@@ -137,9 +147,11 @@ public class SearchEngine {
 
             next.sideToMove = 1 - next.sideToMove;
             next.zHash ^= ZobristHash.sideKey;
-            next.value = -next.value;
+            next.invertValue();
 
+            inNullSearch = true;
             score = -1 * alphaBeta(-beta, -beta + 1, depth - R, ply + 1, next);
+            inNullSearch = false;
 
             repetitions.decrement();
             if (!running) return 0;
@@ -184,12 +196,14 @@ public class SearchEngine {
 
         boolean hasLegalMove = false;
 
+        Move currMove;
         int fullDepthSearches = 0;
-        for (Move m : moves) {
+        for (int i = 0; i < moves.length; i++) {
+            currMove = moves[i];
             if (gamma >= beta) break;
 
             next = new Position(p);
-            boolean isValid = next.makeMove(m);
+            boolean isValid = next.makeMove(currMove);
             if (!isValid) continue;
 
             if (repetitions.isRepetition(next))
@@ -198,7 +212,7 @@ public class SearchEngine {
             repetitions.setCurrentPosition(p.zHash);
             hasLegalMove = true;
 
-            if (fullDepthSearches < 4 || depth < 3 || inCheck || m.capture || m.epCapture || m.promotionPiece != -1) {
+            if (fullDepthSearches < 4 || depth < 3 || inCheck || currMove.capture || currMove.epCapture || currMove.promotionPiece != -1) {
                 score = -alphaBeta(-beta, -a, depth - 1, ply + 1, next);
             } else {
                 score = -alphaBeta(-a - 1, -a, depth - 2, ply + 1, next);
@@ -218,9 +232,12 @@ public class SearchEngine {
             if (gamma > a) {
                 a = gamma;
 
-                if (!m.capture) historyCache[m.pieceIdx][m.end] = gamma;
-                table.putMoveForPosition(p, m);
+                if (!currMove.capture) historyCache[currMove.pieceIdx][currMove.end] = gamma;
+
+                table.putMoveForPosition(p, currMove);
             }
+
+            moves[i] = null;
         }
 
         if (!hasLegalMove)
@@ -240,7 +257,8 @@ public class SearchEngine {
     public int quiesce(int alpha, int beta, Position p) {
         nodes++;
 
-        int score = p.value;
+        int score = p.getValue();
+        int standPat = score;
 
         if (score >= beta)
             return beta;
@@ -257,7 +275,7 @@ public class SearchEngine {
                 int capturedIdx = m.epCapture ? 1 - p.sideToMove : p.getCapturedPieceIdx(m.end);
                 int captureSq = m.epCapture ? m.end + (p.sideToMove == 0 ? -8 : 8) : m.end;
 
-                if (p.value + Piece.baseValues[capturedIdx >> 1] + Piece.squareValues[capturedIdx][captureSq] + 200 < alpha)
+                if (standPat + Piece.baseValues[capturedIdx >> 1] + Piece.squareValues[capturedIdx][captureSq] + 200 < alpha)
                     continue;
             }
 

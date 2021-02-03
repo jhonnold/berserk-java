@@ -1,7 +1,7 @@
 package me.honnold.berserk;
 
 public class Random {
-    private static int state = 123;
+    private static int state = (int) System.currentTimeMillis();
 
     public static int getRandomInt() {
         int number = state;

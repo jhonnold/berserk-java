@@ -3,7 +3,7 @@ package me.honnold.berserk;
 import java.util.Arrays;
 
 public class TranspositionTable {
-    private static final int TABLE_SIZE = (int) Math.pow(2, 24);
+    private static final int TABLE_SIZE = 10000000;
 
     private final Evaluation[] evaluations = new Evaluation[TABLE_SIZE];
     private final MoveEntry[] moves = new MoveEntry[TABLE_SIZE];
