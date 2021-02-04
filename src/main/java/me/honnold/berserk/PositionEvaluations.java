@@ -5,7 +5,7 @@ import java.util.Arrays;
 import static me.honnold.berserk.BoardUtils.*;
 
 public class PositionEvaluations {
-    private static final int TABLE_SIZE = 50000;
+    private static final int PAWN_TABLE_SIZE = 1000000;
     private static final PositionEvaluations POSITION_EVALUATION = new PositionEvaluations();
     public final long[] columnMasks = {
             72340172838076673L,
@@ -28,7 +28,7 @@ public class PositionEvaluations {
             71776119061217280L,
             -72057594037927936L
     };
-    private final int[] pawnEvaluations = new int[TABLE_SIZE];
+    private final int[] pawnEvaluations = new int[PAWN_TABLE_SIZE];
 
     private PositionEvaluations() {
         Arrays.fill(pawnEvaluations, Integer.MAX_VALUE);
@@ -38,20 +38,20 @@ public class PositionEvaluations {
         return POSITION_EVALUATION;
     }
 
-    private int getTableIndex(long pHash) {
-        int modulo = (int) (pHash % TABLE_SIZE);
+    private int getPawnTableIndex(long pHash) {
+        int modulo = (int) (pHash % PAWN_TABLE_SIZE);
 
-        return modulo < 0 ? modulo + TABLE_SIZE : modulo;
+        return modulo < 0 ? modulo + PAWN_TABLE_SIZE : modulo;
     }
 
     public void setPawnEvaluation(long pHash, int value) {
-        int idx = getTableIndex(pHash);
+        int idx = getPawnTableIndex(pHash);
 
         pawnEvaluations[idx] = value;
     }
 
     public int getPawnEvaluation(long pHash) {
-        return pawnEvaluations[getTableIndex(pHash)];
+        return pawnEvaluations[getPawnTableIndex(pHash)];
     }
 
     public int evaluatePawnStructure(Position position) {
@@ -82,7 +82,7 @@ public class PositionEvaluations {
             if (isolated) extraScore -= 40;
 
             boolean doubled = countBits(columnMasks[column] & originalPawnBitboard) > 1;
-            if (doubled) extraScore -= 30;
+            if (doubled) extraScore -= 20;
 
             boolean passed = true;
             if (position.sideToMove == 0) {
@@ -123,5 +123,36 @@ public class PositionEvaluations {
 
     public void clearPawnTT() {
         Arrays.fill(pawnEvaluations, Integer.MAX_VALUE);
+    }
+
+    public int positionEvaluation(Position position) {
+        boolean isEndgame = position.isEndgame();
+        int[][] squareValues = isEndgame ? Piece.endgameSquareValues : Piece.squareValues;
+
+        int score = 0;
+
+        for (int i = position.sideToMove; i < 12; i += 2) {
+            long bb = position.pieceBitboards[i];
+            while (bb != 0) {
+                int sq = getLSBIndex(bb);
+                bb = popBit(bb, sq);
+
+                score += (Piece.baseValues[i >> 1] + squareValues[i][sq]);
+            }
+        }
+
+        for (int i = 1 - position.sideToMove; i < 12; i += 2) {
+            long bb = position.pieceBitboards[i];
+            while (bb != 0) {
+                int sq = getLSBIndex(bb);
+                bb = popBit(bb, sq);
+
+                score -= (Piece.baseValues[i >> 1] + squareValues[i][sq]);
+            }
+        }
+
+        score += this.evaluatePawnStructure(position);
+
+        return score;
     }
 }

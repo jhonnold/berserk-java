@@ -5,8 +5,8 @@ import java.util.Arrays;
 import static me.honnold.berserk.BoardUtils.getBit;
 
 public class SearchEngine {
-    public static final int CHECKMATE_MAX = 69290;
-    public static final int CHECKMATE_MIN = 50710;
+    public static final int CHECKMATE_MAX = Piece.baseValues[5] + 10 * Piece.baseValues[4];
+    public static final int CHECKMATE_MIN = Piece.baseValues[5] - 10 * Piece.baseValues[4];
     public static final int MAX_DEPTH = 100;
 
     public static final int[][] historyCache = new int[12][200];
@@ -31,8 +31,19 @@ public class SearchEngine {
 
         int score = 0;
 
+        int alpha = -CHECKMATE_MAX, beta = CHECKMATE_MAX;
+
         for (int depth = 1; depth <= MAX_DEPTH; depth++) {
-            score = mtdbi(score, depth, p);
+//            score = mtdbi(score, depth, p);
+            score = alphaBeta(alpha, beta, depth, 0, p);
+            if (score <= alpha || score >= beta) {
+                alpha = -CHECKMATE_MAX;
+                beta = CHECKMATE_MAX;
+                continue;
+            }
+
+            alpha = score - 100;
+            beta = score + 100;
 
             if (!running) break;
 
@@ -81,25 +92,25 @@ public class SearchEngine {
         return builder.toString();
     }
 
-    public int mtdbi(int guess, int depth, Position p) {
-        int upper = CHECKMATE_MAX;
-        int lower = -CHECKMATE_MAX;
-        int beta = guess;
-        int gamma;
-
-        do {
-            gamma = alphaBeta(beta - 1, beta, depth, 0, p);
-
-            if (gamma < beta)
-                upper = gamma;
-            else
-                lower = gamma;
-
-            beta = (lower + upper + 1) / 2;
-        } while (lower < upper - 13);
-
-        return gamma;
-    }
+//    public int mtdbi(int guess, int depth, Position p) {
+//        int upper = CHECKMATE_MAX;
+//        int lower = -CHECKMATE_MAX;
+//        int beta = guess;
+//        int gamma;
+//
+//        do {
+//            gamma = alphaBeta(beta - 13, beta, depth, 0, p);
+//
+//            if (gamma < beta)
+//                upper = gamma;
+//            else
+//                lower = gamma;
+//
+//            beta = (lower + upper + 1) / 2;
+//        } while (lower < upper - 13);
+//
+//        return gamma;
+//    }
 
     public int alphaBeta(int alpha, int beta, int depth, int ply, Position p) {
         int mateMaxValue = CHECKMATE_MAX - ply;
@@ -108,7 +119,6 @@ public class SearchEngine {
             beta = mateMaxValue;
             if (alpha >= mateMaxValue) return mateMaxValue;
         }
-
 
         boolean inCheck = p.isSquareAttacked(BoardUtils.getLSBIndex(p.pieceBitboards[10 + p.sideToMove]), 1 - p.sideToMove);
         if (inCheck) depth++;
@@ -131,11 +141,11 @@ public class SearchEngine {
             }
         }
 
-        int gamma = -CHECKMATE_MAX, a = alpha, score;
+        int bestScore = -CHECKMATE_MAX, a = alpha, score;
         Position next;
 
         // null move pruning
-        if (depth >= 3 && !inCheck && ply > 0 && !inNullSearch) {
+        if (depth >= 3 && !inCheck && ply > 0 && !inNullSearch && !p.isEndgame()) {
             int R = depth > 6 ? 4 : 3;
             next = new Position(p);
 
@@ -147,7 +157,6 @@ public class SearchEngine {
 
             next.sideToMove = 1 - next.sideToMove;
             next.zHash ^= ZobristHash.sideKey;
-            next.invertValue();
 
             inNullSearch = true;
             score = -1 * alphaBeta(-beta, -beta + 1, depth - R, ply + 1, next);
@@ -200,7 +209,7 @@ public class SearchEngine {
         int fullDepthSearches = 0;
         for (int i = 0; i < moves.length; i++) {
             currMove = moves[i];
-            if (gamma >= beta) break;
+            if (bestScore >= beta) break;
 
             next = new Position(p);
             boolean isValid = next.makeMove(currMove);
@@ -217,7 +226,7 @@ public class SearchEngine {
             } else {
                 score = -alphaBeta(-a - 1, -a, depth - 2, ply + 1, next);
 
-                if (score > a && score < beta)
+                if (score > a  && score < beta)
                     score = -alphaBeta(-beta, -a, depth - 1, ply + 1, next);
             }
 
@@ -226,13 +235,13 @@ public class SearchEngine {
 
             if (!running) return 0;
 
-            if (score > gamma)
-                gamma = score;
+            if (score > bestScore)
+                bestScore = score;
 
-            if (gamma > a) {
-                a = gamma;
+            if (bestScore > a) {
+                a = bestScore;
 
-                if (!currMove.capture) historyCache[currMove.pieceIdx][currMove.end] = gamma;
+                if (!currMove.capture) historyCache[currMove.pieceIdx][currMove.end] = bestScore;
 
                 table.putMoveForPosition(p, currMove);
             }
@@ -243,15 +252,15 @@ public class SearchEngine {
         if (!hasLegalMove)
             return inCheck ? -mateMaxValue : 0;
 
-        if (gamma <= alpha) {
-            table.putEvaluationForPosition(p, depth, -CHECKMATE_MAX, gamma);
-        } else if (gamma < beta) {
-            table.putEvaluationForPosition(p, depth, gamma, gamma);
+        if (bestScore <= alpha) {
+            table.putEvaluationForPosition(p, depth, -CHECKMATE_MAX, bestScore);
+        } else if (bestScore < beta) {
+            table.putEvaluationForPosition(p, depth, bestScore, bestScore);
         } else {
-            table.putEvaluationForPosition(p, depth, gamma, CHECKMATE_MAX);
+            table.putEvaluationForPosition(p, depth, bestScore, CHECKMATE_MAX);
         }
 
-        return gamma;
+        return bestScore;
     }
 
     public int quiesce(int alpha, int beta, Position p) {
