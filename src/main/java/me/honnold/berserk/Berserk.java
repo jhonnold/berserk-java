@@ -19,7 +19,7 @@ public class Berserk implements Runnable {
                     while (!calculating) sync.wait();
                 }
 
-                engine.searchMtdbi(currentPosition);
+                engine.search(currentPosition);
                 calculating = false;
 
                 System.out.printf("bestmove %s%n", transpositionTable.getMoveForPosition(currentPosition));

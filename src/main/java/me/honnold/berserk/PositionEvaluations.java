@@ -79,7 +79,7 @@ public class PositionEvaluations {
             if (column < 7)
                 isolated = isolated && ((columnMasks[column + 1] & originalPawnBitboard) == 0);
 
-            if (isolated) extraScore -= 40;
+            if (isolated) extraScore -= 20;
 
             boolean doubled = countBits(columnMasks[column] & originalPawnBitboard) > 1;
             if (doubled) extraScore -= 20;
@@ -113,7 +113,40 @@ public class PositionEvaluations {
                 }
             }
 
-            if (passed) extraScore += 50;
+            if (passed) {
+                if (position.sideToMove == 0) extraScore += Math.min(20, (20 * (row - 2)));
+                else extraScore += Math.min(20, (20 * (6 - row)));
+            }
+
+            // backwards
+            boolean backwards = (AttackMasks.PAWN_ATTACKS[position.sideToMove][pawnSquare + Position.pawnDirections[position.sideToMove]] & position.pieceBitboards[1 - position.sideToMove]) != 0;
+            if (backwards && position.sideToMove == 0) {
+                if (!isolated) {
+                    for (int i = row; i < 7; i++) {
+                        long currentRow = originalPawnBitboard & rowMasks[i];
+                        if (column > 0)
+                            backwards = backwards && ((columnMasks[column - 1] & currentRow) == 0);
+                        if (column < 7)
+                            backwards = backwards && ((columnMasks[column + 1] & currentRow) == 0);
+
+                        if (!backwards) break;
+                    }
+                }
+            } else if (backwards && position.sideToMove == 1) {
+                if (!isolated) {
+                    for (int i = row; i > 0; i--) {
+                        long currentRow = originalPawnBitboard & rowMasks[i];
+                        if (column > 0)
+                            backwards = backwards && ((columnMasks[column - 1] & currentRow) == 0);
+                        if (column < 7)
+                            backwards = backwards && ((columnMasks[column + 1] & currentRow) == 0);
+
+                        if (!backwards) break;
+                    }
+                }
+            }
+
+            if (backwards) extraScore -= 30;
         }
 
         setPawnEvaluation(pHash, extraScore);

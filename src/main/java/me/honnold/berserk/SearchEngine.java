@@ -14,53 +14,38 @@ public class SearchEngine {
     public final Repetitions repetitions;
     public int nodes = 0;
     public int hits = 0;
+    public long startTime = 0;
     private boolean running = false;
-    public static boolean inNullSearch = false;
 
     public SearchEngine(TranspositionTable table, Repetitions repetitions) {
         this.table = table;
         this.repetitions = repetitions;
     }
 
-    public int searchMtdbi(Position p) {
+    public int search(Position p) {
         running = true;
         nodes = 0;
         table.clear();
 
-        long startTime = System.currentTimeMillis();
+        this.startTime = System.currentTimeMillis();
 
         int score = 0;
 
         int alpha = -CHECKMATE_MAX, beta = CHECKMATE_MAX;
 
         for (int depth = 1; depth <= MAX_DEPTH; depth++) {
-//            score = mtdbi(score, depth, p);
             score = alphaBeta(alpha, beta, depth, 0, p);
             if (score <= alpha || score >= beta) {
-                alpha = -CHECKMATE_MAX;
-                beta = CHECKMATE_MAX;
+                alpha -= 50;
+                beta += 50;
+                depth--;
                 continue;
             }
 
-            alpha = score - 100;
-            beta = score + 100;
+            alpha = score - 50;
+            beta = score + 50;
 
             if (!running) break;
-
-            String scoreUnit = Math.abs(score) >= CHECKMATE_MIN ? "mate " : "cp ";
-            int scoreValue = Math.abs(score) <= CHECKMATE_MIN ? score
-                    : score < -CHECKMATE_MIN ? -((CHECKMATE_MAX + score) / 2 + 1)
-                    : (CHECKMATE_MAX - score) / 2 + 1;
-
-            StringBuilder output = new StringBuilder();
-            output.append("info depth ").append(depth)
-                    .append(" score ")
-                    .append(scoreUnit)
-                    .append(scoreValue)
-                    .append(" nodes ").append(nodes)
-                    .append(" nps ").append(String.format("%.0f", 1000.0 * nodes / (System.currentTimeMillis() - startTime)))
-                    .append(" pv ").append(getPv(p));
-            System.out.println(output);
         }
 
         running = false;
@@ -91,26 +76,6 @@ public class SearchEngine {
 
         return builder.toString();
     }
-
-//    public int mtdbi(int guess, int depth, Position p) {
-//        int upper = CHECKMATE_MAX;
-//        int lower = -CHECKMATE_MAX;
-//        int beta = guess;
-//        int gamma;
-//
-//        do {
-//            gamma = alphaBeta(beta - 13, beta, depth, 0, p);
-//
-//            if (gamma < beta)
-//                upper = gamma;
-//            else
-//                lower = gamma;
-//
-//            beta = (lower + upper + 1) / 2;
-//        } while (lower < upper - 13);
-//
-//        return gamma;
-//    }
 
     public int alphaBeta(int alpha, int beta, int depth, int ply, Position p) {
         int mateMaxValue = CHECKMATE_MAX - ply;
@@ -145,7 +110,7 @@ public class SearchEngine {
         Position next;
 
         // null move pruning
-        if (depth >= 3 && !inCheck && ply > 0 && !inNullSearch && !p.isEndgame()) {
+        if (depth >= 3 && !inCheck && ply > 0 && !p.isEndgame()) {
             int R = depth > 6 ? 4 : 3;
             next = new Position(p);
 
@@ -158,17 +123,12 @@ public class SearchEngine {
             next.sideToMove = 1 - next.sideToMove;
             next.zHash ^= ZobristHash.sideKey;
 
-            inNullSearch = true;
             score = -1 * alphaBeta(-beta, -beta + 1, depth - R, ply + 1, next);
-            inNullSearch = false;
 
             repetitions.decrement();
             if (!running) return 0;
 
-            if (score >= beta) {
-                depth -= 4;
-                if (depth <= 0) return quiesce(alpha, beta, p);
-            }
+            if (score >= beta) return beta;
         }
 
         Move[] moves = p.getMoves();
@@ -244,6 +204,23 @@ public class SearchEngine {
                 if (!currMove.capture) historyCache[currMove.pieceIdx][currMove.end] = bestScore;
 
                 table.putMoveForPosition(p, currMove);
+
+                if (ply == 0) {
+                    String scoreUnit = Math.abs(score) >= CHECKMATE_MIN ? "mate " : "cp ";
+                    int scoreValue = Math.abs(score) <= CHECKMATE_MIN ? score
+                            : score < -CHECKMATE_MIN ? -((CHECKMATE_MAX + score) / 2 + 1)
+                            : (CHECKMATE_MAX - score) / 2 + 1;
+
+                    StringBuilder output = new StringBuilder();
+                    output.append("info depth ").append(depth)
+                            .append(" score ")
+                            .append(scoreUnit)
+                            .append(scoreValue)
+                            .append(" nodes ").append(nodes)
+                            .append(" nps ").append(String.format("%.0f", 1000.0 * nodes / (System.currentTimeMillis() - startTime)))
+                            .append(" pv ").append(getPv(p));
+                    System.out.println(output);
+                }
             }
 
             moves[i] = null;

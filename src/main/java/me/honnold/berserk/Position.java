@@ -41,7 +41,7 @@ public class Position {
     public int epSquare;
     public long zHash = 0;
     private long pawnHash = 0;
-    public int[] pawnDirections = {-8, 8};
+    public static int[] pawnDirections = {-8, 8};
 
     public Position(String fen) {
         String[] parts = fen.split("\\s+");
