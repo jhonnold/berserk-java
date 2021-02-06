@@ -1,6 +1,8 @@
 package me.honnold.berserk.board;
 
 public class Piece {
+
+
     public static final int[][] mvvLva = {
         {105, 105, 205, 205, 305, 305, 405, 405, 505, 505, 605, 605},
         {105, 105, 205, 205, 305, 305, 405, 405, 505, 505, 605, 605},
@@ -17,8 +19,8 @@ public class Piece {
     };
 
     private static final int[][] pieceValues = {
-        {90, 300, 350, 475, 950, 50000},
-        {110, 275, 325, 550, 900, 50000},
+        {78, 300, 350, 475, 950, 50000},
+        {98, 275, 325, 550, 900, 50000},
     };
     private static final int[] mirror = {
         56, 57, 58, 59, 60, 61, 62, 63,
