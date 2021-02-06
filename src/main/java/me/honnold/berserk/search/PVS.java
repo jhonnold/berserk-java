@@ -2,16 +2,17 @@ package me.honnold.berserk.search;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import me.honnold.berserk.util.BBUtils;
-import me.honnold.berserk.moves.Move;
+import me.honnold.berserk.board.GameStage;
 import me.honnold.berserk.board.Piece;
 import me.honnold.berserk.board.Position;
 import me.honnold.berserk.eval.Constants;
+import me.honnold.berserk.moves.Move;
 import me.honnold.berserk.moves.MoveGenerator;
 import me.honnold.berserk.tt.Evaluation;
 import me.honnold.berserk.tt.EvaluationFlag;
 import me.honnold.berserk.tt.TranspositionEvaluations;
 import me.honnold.berserk.tt.ZobristHash;
+import me.honnold.berserk.util.BBUtils;
 
 public class PVS implements Runnable {
     public static final int MAX_DEPTH = 100;
@@ -223,6 +224,8 @@ public class PVS implements Runnable {
     public int quiesce(int alpha, int beta, Position position) {
         this.results.incNodes();
 
+        GameStage stage = position.getGameStage();
+
         int score = position.getValue();
         int standPat = score;
 
@@ -235,14 +238,14 @@ public class PVS implements Runnable {
         for (Move m : moves) {
             if (!m.capture && !m.epCapture && m.promotionPiece == -1) continue;
 
-            if (m.capture || m.epCapture) {
+            if ((m.capture || m.epCapture) && stage != GameStage.ENDGAME) {
                 int capturedIdx =
                         m.epCapture ? 1 - position.sideToMove : position.getCapturedPieceIdx(m.end);
                 int captureSq = m.epCapture ? m.end + (position.sideToMove == 0 ? -8 : 8) : m.end;
 
                 if (standPat
-                                + Piece.baseValues[capturedIdx >> 1]
-                                + Piece.squareValues[capturedIdx][captureSq]
+                                + Piece.getPieceValue(capturedIdx, stage)
+                                + Piece.getPositionValue(capturedIdx, captureSq, stage)
                                 + 200
                         < alpha) continue;
             }

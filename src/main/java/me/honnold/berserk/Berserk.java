@@ -1,5 +1,7 @@
 package me.honnold.berserk;
 
+import java.util.List;
+import java.util.Scanner;
 import me.honnold.berserk.board.Position;
 import me.honnold.berserk.moves.Move;
 import me.honnold.berserk.moves.MoveGenerator;
@@ -8,9 +10,6 @@ import me.honnold.berserk.search.Repetitions;
 import me.honnold.berserk.util.Perft;
 import me.honnold.berserk.util.TimeManager;
 import org.apache.commons.lang3.ArrayUtils;
-
-import java.util.List;
-import java.util.Scanner;
 
 public class Berserk {
     private final Repetitions repetitions = Repetitions.getInstance();
@@ -76,24 +75,27 @@ public class Berserk {
         if (infinite == -1) {
             // TODO: Come up with something better for timing
             int incIdx =
-                    ArrayUtils.indexOf(tokens, currentPosition.sideToMove == 0 ? "winc" :
-                            "binc")
+                    ArrayUtils.indexOf(tokens, currentPosition.sideToMove == 0 ? "winc" : "binc")
                             + 1;
             int timeIdx =
-                    ArrayUtils.indexOf(tokens, currentPosition.sideToMove == 0 ? "wtime" :
-                            "btime")
+                    ArrayUtils.indexOf(tokens, currentPosition.sideToMove == 0 ? "wtime" : "btime")
                             + 1;
 
             if (timeIdx > 0) {
                 int time = Integer.parseInt(tokens[timeIdx]);
                 boolean hasInc = incIdx > 0 && !"0".equals(tokens[incIdx]);
 
-                timeToUse = time / (hasInc ? 10 : 40);
-                if (timeToUse > 30000) timeToUse = 30000;
+                int movesToGoIdx = ArrayUtils.indexOf(tokens, "movestogo") + 1;
+                int divisor =
+                        movesToGoIdx >= 0
+                                ? Math.max(2, Integer.parseInt(tokens[movesToGoIdx]))
+                                : (hasInc ? 10 : 40);
+
+                timeToUse = time / divisor;
+                if (timeToUse > 60000) timeToUse = 60000;
                 if (timeToUse < 150) timeToUse = 150;
 
-                if (incIdx > 0)
-                    timeToUse += (Integer.parseInt(tokens[incIdx]) / 2);
+                if (incIdx > 0) timeToUse += (Integer.parseInt(tokens[incIdx]) / 2);
             }
         }
 
@@ -101,25 +103,27 @@ public class Berserk {
     }
 
     public Thread searchForTime(Position position, int time) {
-        Thread runner = new Thread(() -> {
-            search = new PVS(position);
-            timeManager = new TimeManager(search, time);
+        Thread runner =
+                new Thread(
+                        () -> {
+                            search = new PVS(position);
+                            timeManager = new TimeManager(search, time);
 
-            Thread searchThread = new Thread(search);
-            Thread timeThread = new Thread(timeManager);
+                            Thread searchThread = new Thread(search);
+                            Thread timeThread = new Thread(timeManager);
 
-            searchThread.start();
-            timeThread.start();
+                            searchThread.start();
+                            timeThread.start();
 
-            try {
-                searchThread.join();
-                timeThread.join();
-            } catch (InterruptedException ignored) {
-            } finally {
-                System.out.println("bestmove " + search.getResults().getBestMove());
-            }
-        });
-        
+                            try {
+                                searchThread.join();
+                                timeThread.join();
+                            } catch (InterruptedException ignored) {
+                            } finally {
+                                System.out.println("bestmove " + search.getResults().getBestMove());
+                            }
+                        });
+
         runner.start();
         return runner;
     }
@@ -148,8 +152,7 @@ public class Berserk {
             int promotionPiece = -1;
 
             if (moveString.length() == 5) {
-                promotionPiece = ArrayUtils.indexOf(Position.pieceSymbols,
-                        moveString.charAt(4));
+                promotionPiece = ArrayUtils.indexOf(Position.pieceSymbols, moveString.charAt(4));
                 promotionPiece -= (1 - currentPosition.sideToMove);
             }
 
@@ -162,8 +165,7 @@ public class Berserk {
                 }
             }
 
-            if (foundMove == null) throw new RuntimeException("Move not found! " +
-                    moveString);
+            if (foundMove == null) throw new RuntimeException("Move not found! " + moveString);
             currentPosition.makeMove(foundMove);
             repetitions.add(currentPosition.zHash);
         }

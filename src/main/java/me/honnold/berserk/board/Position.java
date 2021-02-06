@@ -3,7 +3,6 @@ package me.honnold.berserk.board;
 import static me.honnold.berserk.util.BBUtils.*;
 
 import java.util.Arrays;
-
 import me.honnold.berserk.eval.PositionEvaluations;
 import me.honnold.berserk.moves.AttackMasks;
 import me.honnold.berserk.moves.Move;
@@ -269,16 +268,17 @@ public class Position {
         return pawnHash;
     }
 
-    public boolean isEndgame() {
-        int basePieceValue = 0;
-        // dont add up king values
-        for (int i = sideToMove; i < 10; i++) {
+    public GameStage getGameStage() {
+        int pieceValues = 0;
+        for (int i = 2; i < 10; i++) {
             long bb = pieceBitboards[i];
             int numPieces = countBits(bb);
 
-            basePieceValue += (numPieces * Piece.baseValues[i >> 1]);
+            pieceValues += (numPieces * Piece.getPieceValue(i, GameStage.OPENING));
         }
 
-        return basePieceValue <= 2600;
+        if (pieceValues > 6000) return GameStage.OPENING;
+        else if (pieceValues < 1000) return GameStage.ENDGAME;
+        else return GameStage.MIDDLEGAME;
     }
 }

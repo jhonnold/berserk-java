@@ -4,8 +4,7 @@ public class Random {
     private static final Random singleton = new Random();
     private int state = (int) System.currentTimeMillis();
 
-    private Random() {
-    }
+    private Random() {}
 
     public static Random getInstance() {
         return singleton;

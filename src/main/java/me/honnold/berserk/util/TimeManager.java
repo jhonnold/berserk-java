@@ -1,8 +1,7 @@
 package me.honnold.berserk.util;
 
-import me.honnold.berserk.search.PVS;
-
 import java.util.concurrent.atomic.AtomicBoolean;
+import me.honnold.berserk.search.PVS;
 
 public class TimeManager implements Runnable {
     private final PVS search;

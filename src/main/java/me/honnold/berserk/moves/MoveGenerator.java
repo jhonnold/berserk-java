@@ -4,7 +4,6 @@ import static me.honnold.berserk.util.BBUtils.*;
 
 import java.util.LinkedList;
 import java.util.List;
-
 import me.honnold.berserk.board.Piece;
 import me.honnold.berserk.board.Position;
 

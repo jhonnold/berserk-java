@@ -1,0 +1,1 @@
+java -jar build/libs/berserk-0.1.0.jar
