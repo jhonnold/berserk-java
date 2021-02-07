@@ -43,6 +43,28 @@ public class AttackMasks {
     private final long NOT_AB_FILE = -217020518514230020L;
     private final long NOT_GH_FILE = 4557430888798830399L;
 
+    public final long[] columnMasks = {
+        72340172838076673L,
+        144680345676153346L,
+        289360691352306692L,
+        578721382704613384L,
+        1157442765409226768L,
+        2314885530818453536L,
+        4629771061636907072L,
+        -9187201950435737472L
+    };
+    public final long[] rowMasks = {
+        255L,
+        65280L,
+        16711680L,
+        4278190080L,
+        1095216660480L,
+        280375465082880L,
+        71776119061217280L,
+        -72057594037927936L
+    };
+    public final long middleFourRanks = rowMasks[2] | rowMasks[3] | rowMasks[4] | rowMasks[5];
+
     private AttackMasks() {
         PAWN_ATTACKS = generatePawnAttacks();
         KNIGHT_ATTACKS = generateKnightAttacks();

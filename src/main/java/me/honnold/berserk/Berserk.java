@@ -87,7 +87,7 @@ public class Berserk {
 
                 int movesToGoIdx = ArrayUtils.indexOf(tokens, "movestogo") + 1;
                 int divisor =
-                        movesToGoIdx >= 0
+                        movesToGoIdx > 0
                                 ? Math.max(2, Integer.parseInt(tokens[movesToGoIdx]))
                                 : (hasInc ? 10 : 40);
 
@@ -121,6 +121,7 @@ public class Berserk {
                             } catch (InterruptedException ignored) {
                             } finally {
                                 System.out.println("bestmove " + search.getResults().getBestMove());
+                                System.out.println(search.getResults());
                             }
                         });
 

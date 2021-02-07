@@ -73,7 +73,6 @@ public class Position {
         occupancyBitboards[2] = occupancyBitboards[0] | occupancyBitboards[1];
 
         this.zHash = hasher.getZobristHash(this);
-        this.pawnHash = hasher.getPawnZobristHash(this);
     }
 
     public Position(Position p) {
@@ -196,6 +195,11 @@ public class Position {
                 getLSBIndex(this.pieceBitboards[11 - this.sideToMove]), this.sideToMove);
     }
 
+    public boolean inCheck() {
+        return this.isSquareAttacked(
+                getLSBIndex(pieceBitboards[10 + this.sideToMove]), 1 - this.sideToMove);
+    }
+
     public boolean isSquareAttacked(int square, int bySide) {
         AttackMasks attackMasks = AttackMasks.getInstance();
 
@@ -278,7 +282,7 @@ public class Position {
         }
 
         if (pieceValues > 6000) return GameStage.OPENING;
-        else if (pieceValues < 1000) return GameStage.ENDGAME;
+        else if (pieceValues < 1500) return GameStage.ENDGAME;
         else return GameStage.MIDDLEGAME;
     }
 }

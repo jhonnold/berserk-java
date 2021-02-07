@@ -55,26 +55,6 @@ public class ZobristHash {
         return key;
     }
 
-    public long getPawnZobristHash(Position p) {
-        long key = 0;
-
-        long whitePawns = p.pieceBitboards[0];
-        while (whitePawns != 0) {
-            int sq = getLSBIndex(whitePawns);
-            key ^= pieceKeys[0][sq];
-            whitePawns = popBit(whitePawns, sq);
-        }
-
-        long blackPawns = p.pieceBitboards[1];
-        while (blackPawns != 0) {
-            int sq = getLSBIndex(blackPawns);
-            key ^= pieceKeys[1][sq];
-            blackPawns = popBit(blackPawns, sq);
-        }
-
-        return key;
-    }
-
     public long getSideKey() {
         return sideKey;
     }

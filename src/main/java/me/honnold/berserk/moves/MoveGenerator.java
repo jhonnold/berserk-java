@@ -2,16 +2,20 @@ package me.honnold.berserk.moves;
 
 import static me.honnold.berserk.util.BBUtils.*;
 
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 import me.honnold.berserk.board.Piece;
 import me.honnold.berserk.board.Position;
+import me.honnold.berserk.tt.Evaluation;
+import me.honnold.berserk.tt.Transpositions;
 
 public class MoveGenerator {
     private static final MoveGenerator singleton = new MoveGenerator();
 
     private final AttackMasks masks = AttackMasks.getInstance();
+    private final Transpositions transpositions = Transpositions.getInstance();
     private int[][] historicalMoveScores = new int[12][64];
+    private Move[][] killers = new Move[100][2];
 
     private MoveGenerator() {}
 
@@ -23,131 +27,48 @@ public class MoveGenerator {
         this.historicalMoveScores = new int[12][64];
     }
 
+    public void clearKillers() {
+        this.killers = new Move[100][2];
+    }
+
     public void setHistoricalMoveScore(Move move, int score) {
         this.historicalMoveScores[move.pieceIdx][move.end] = score;
     }
 
+    public void addKiller(Move move, int ply) {
+        if (!move.equals(killers[ply][0])) killers[ply][1] = killers[ply][0];
+
+        killers[ply][0] = move;
+    }
+
     public List<Move> getAllMoves(Position position) {
-        List<Move> moves = new LinkedList<>();
+        List<Move> moves = new ArrayList<>();
 
         int pawnDirection = position.sideToMove == 0 ? -8 : 8;
+        long[] promotionRanks = {masks.rowMasks[1], masks.rowMasks[6]};
+        long[] doubleMoveRanks = {masks.rowMasks[6], masks.rowMasks[1]};
+
         for (int i = position.sideToMove; i < 12; i += 2) {
             long pieceBoard = position.pieceBitboards[i];
-
-            if (i >> 1 == 0) { // pawns
-                while (pieceBoard != 0) {
-                    int start = getLSBIndex(pieceBoard);
-                    pieceBoard = popBit(pieceBoard, start);
+            if (i >> 1 == 0) {
+                long normalPawns = pieceBoard & masks.middleFourRanks;
+                while (normalPawns != 0) {
+                    int start = getLSBIndex(normalPawns);
+                    normalPawns = popLSB(normalPawns);
                     int end = start + pawnDirection;
 
-                    // off the board or blocked
-                    if (!getBit(position.occupancyBitboards[2], end)) {
-                        if ((position.sideToMove == 0 && start >= 8 && start <= 15)
-                                || (position.sideToMove == 1 && start >= 48 && start <= 55)) {
-                            moves.add(
-                                    new Move(
-                                            start,
-                                            end,
-                                            i,
-                                            8 + position.sideToMove,
-                                            false,
-                                            false,
-                                            false,
-                                            false));
-                            moves.add(
-                                    new Move(
-                                            start,
-                                            end,
-                                            i,
-                                            6 + position.sideToMove,
-                                            false,
-                                            false,
-                                            false,
-                                            false));
-                            moves.add(
-                                    new Move(
-                                            start,
-                                            end,
-                                            i,
-                                            4 + position.sideToMove,
-                                            false,
-                                            false,
-                                            false,
-                                            false));
-                            moves.add(
-                                    new Move(
-                                            start,
-                                            end,
-                                            i,
-                                            2 + position.sideToMove,
-                                            false,
-                                            false,
-                                            false,
-                                            false));
-                        } else {
-                            moves.add(new Move(start, end, i, -1, false, false, false, false));
-                            if ((position.sideToMove == 0 && start >= 48 && start <= 55)
-                                    || (position.sideToMove == 1 && start >= 8 && start <= 15)) {
-                                end += pawnDirection;
-                                if (!getBit(position.occupancyBitboards[2], end))
-                                    moves.add(
-                                            new Move(start, end, i, -1, false, true, false, false));
-                            }
-                        }
-                    }
+                    if (!getBit(position.occupancyBitboards[2], end))
+                        moves.add(new Move(start, end, i, -1, false, false, false, false));
 
                     long attacks =
                             masks.getPawnAttacks(position.sideToMove, start)
                                     & position.occupancyBitboards[1 - position.sideToMove];
+
                     while (attacks != 0) {
                         end = getLSBIndex(attacks);
-                        attacks = popBit(attacks, end);
+                        attacks = popLSB(attacks);
 
-                        if ((position.sideToMove == 0 && start >= 8 && start <= 15)
-                                || (position.sideToMove == 1 && start >= 48 && start <= 55)) {
-                            moves.add(
-                                    new Move(
-                                            start,
-                                            end,
-                                            i,
-                                            8 + position.sideToMove,
-                                            true,
-                                            false,
-                                            false,
-                                            false));
-                            moves.add(
-                                    new Move(
-                                            start,
-                                            end,
-                                            i,
-                                            6 + position.sideToMove,
-                                            true,
-                                            false,
-                                            false,
-                                            false));
-                            moves.add(
-                                    new Move(
-                                            start,
-                                            end,
-                                            i,
-                                            4 + position.sideToMove,
-                                            true,
-                                            false,
-                                            false,
-                                            false));
-                            moves.add(
-                                    new Move(
-                                            start,
-                                            end,
-                                            i,
-                                            2 + position.sideToMove,
-                                            true,
-                                            false,
-                                            false,
-                                            false));
-                        } else {
-                            moves.add(new Move(start, end, i, -1, true, false, false, false));
-                        }
+                        moves.add(new Move(start, end, i, -1, true, false, false, false));
                     }
 
                     if (position.epSquare != -1) {
@@ -166,6 +87,132 @@ public class MoveGenerator {
                                             true,
                                             false));
                         }
+                    }
+                }
+
+                long doubleJumpPawns = pieceBoard & doubleMoveRanks[position.sideToMove];
+                while (doubleJumpPawns != 0) {
+                    int start = getLSBIndex(doubleJumpPawns);
+                    doubleJumpPawns = popLSB(doubleJumpPawns);
+                    int end = start + pawnDirection;
+
+                    if (!getBit(position.occupancyBitboards[2], end)) {
+                        moves.add(new Move(start, end, i, -1, false, false, false, false));
+
+                        end += pawnDirection;
+                        if (!getBit(position.occupancyBitboards[2], end))
+                            moves.add(new Move(start, end, i, -1, false, true, false, false));
+                    }
+
+                    long attacks =
+                            masks.getPawnAttacks(position.sideToMove, start)
+                                    & position.occupancyBitboards[1 - position.sideToMove];
+
+                    while (attacks != 0) {
+                        end = getLSBIndex(attacks);
+                        attacks = popLSB(attacks);
+
+                        moves.add(new Move(start, end, i, -1, true, false, false, false));
+                    }
+                }
+
+                long promotingPawns = pieceBoard & promotionRanks[position.sideToMove];
+
+                while (promotingPawns != 0) {
+                    int start = getLSBIndex(promotingPawns);
+                    promotingPawns = popLSB(promotingPawns);
+                    int end = start + pawnDirection;
+
+                    if (!getBit(position.occupancyBitboards[2], end)) {
+                        moves.add(
+                                new Move(
+                                        start,
+                                        end,
+                                        i,
+                                        8 + position.sideToMove,
+                                        false,
+                                        false,
+                                        false,
+                                        false));
+                        moves.add(
+                                new Move(
+                                        start,
+                                        end,
+                                        i,
+                                        6 + position.sideToMove,
+                                        false,
+                                        false,
+                                        false,
+                                        false));
+                        moves.add(
+                                new Move(
+                                        start,
+                                        end,
+                                        i,
+                                        4 + position.sideToMove,
+                                        false,
+                                        false,
+                                        false,
+                                        false));
+                        moves.add(
+                                new Move(
+                                        start,
+                                        end,
+                                        i,
+                                        2 + position.sideToMove,
+                                        false,
+                                        false,
+                                        false,
+                                        false));
+                    }
+
+                    long attacks =
+                            masks.getPawnAttacks(position.sideToMove, start)
+                                    & position.occupancyBitboards[1 - position.sideToMove];
+                    while (attacks != 0) {
+                        end = getLSBIndex(attacks);
+                        attacks = popLSB(attacks);
+
+                        moves.add(
+                                new Move(
+                                        start,
+                                        end,
+                                        i,
+                                        8 + position.sideToMove,
+                                        true,
+                                        false,
+                                        false,
+                                        false));
+                        moves.add(
+                                new Move(
+                                        start,
+                                        end,
+                                        i,
+                                        6 + position.sideToMove,
+                                        true,
+                                        false,
+                                        false,
+                                        false));
+                        moves.add(
+                                new Move(
+                                        start,
+                                        end,
+                                        i,
+                                        4 + position.sideToMove,
+                                        true,
+                                        false,
+                                        false,
+                                        false));
+                        moves.add(
+                                new Move(
+                                        start,
+                                        end,
+                                        i,
+                                        2 + position.sideToMove,
+                                        true,
+                                        false,
+                                        false,
+                                        false));
                     }
                 }
             } else if (i >> 1 == 5) { // kings
@@ -217,7 +264,7 @@ public class MoveGenerator {
 
                 while (pieceBoard != 0) {
                     int start = getLSBIndex(pieceBoard);
-                    pieceBoard = popBit(pieceBoard, start);
+                    pieceBoard = popLSB(pieceBoard);
 
                     long attacks =
                             masks.getKingAttacks(start)
@@ -225,7 +272,7 @@ public class MoveGenerator {
 
                     while (attacks != 0) {
                         int end = getLSBIndex(attacks);
-                        attacks = popBit(attacks, end);
+                        attacks = popLSB(attacks);
 
                         if (getBit(position.occupancyBitboards[1 - position.sideToMove], end))
                             moves.add(new Move(start, end, i, -1, true, false, false, false));
@@ -235,7 +282,7 @@ public class MoveGenerator {
             } else if (i >> 1 == 1) { // knights
                 while (pieceBoard != 0) {
                     int start = getLSBIndex(pieceBoard);
-                    pieceBoard = popBit(pieceBoard, start);
+                    pieceBoard = popLSB(pieceBoard);
 
                     long attacks =
                             masks.getKnightAttacks(start)
@@ -243,7 +290,7 @@ public class MoveGenerator {
 
                     while (attacks != 0) {
                         int end = getLSBIndex(attacks);
-                        attacks = popBit(attacks, end);
+                        attacks = popLSB(attacks);
 
                         if (getBit(position.occupancyBitboards[1 - position.sideToMove], end))
                             moves.add(new Move(start, end, i, -1, true, false, false, false));
@@ -253,7 +300,7 @@ public class MoveGenerator {
             } else if (i >> 1 == 2) { // bishops
                 while (pieceBoard != 0) {
                     int start = getLSBIndex(pieceBoard);
-                    pieceBoard = popBit(pieceBoard, start);
+                    pieceBoard = popLSB(pieceBoard);
 
                     long attacks =
                             masks.getBishopAttacks(start, position.occupancyBitboards[2])
@@ -261,7 +308,7 @@ public class MoveGenerator {
 
                     while (attacks != 0) {
                         int end = getLSBIndex(attacks);
-                        attacks = popBit(attacks, end);
+                        attacks = popLSB(attacks);
 
                         if (getBit(position.occupancyBitboards[1 - position.sideToMove], end))
                             moves.add(new Move(start, end, i, -1, true, false, false, false));
@@ -271,7 +318,7 @@ public class MoveGenerator {
             } else if (i >> 1 == 3) { // rooks
                 while (pieceBoard != 0) {
                     int start = getLSBIndex(pieceBoard);
-                    pieceBoard = popBit(pieceBoard, start);
+                    pieceBoard = popLSB(pieceBoard);
 
                     long attacks =
                             masks.getRookAttacks(start, position.occupancyBitboards[2])
@@ -279,7 +326,7 @@ public class MoveGenerator {
 
                     while (attacks != 0) {
                         int end = getLSBIndex(attacks);
-                        attacks = popBit(attacks, end);
+                        attacks = popLSB(attacks);
 
                         if (getBit(position.occupancyBitboards[1 - position.sideToMove], end))
                             moves.add(new Move(start, end, i, -1, true, false, false, false));
@@ -289,7 +336,7 @@ public class MoveGenerator {
             } else if (i >> 1 == 4) { // queens
                 while (pieceBoard != 0) {
                     int start = getLSBIndex(pieceBoard);
-                    pieceBoard = popBit(pieceBoard, start);
+                    pieceBoard = popLSB(pieceBoard);
 
                     long attacks =
                             masks.getQueenAttacks(start, position.occupancyBitboards[2])
@@ -297,7 +344,7 @@ public class MoveGenerator {
 
                     while (attacks != 0) {
                         int end = getLSBIndex(attacks);
-                        attacks = popBit(attacks, end);
+                        attacks = popLSB(attacks);
 
                         if (getBit(position.occupancyBitboards[1 - position.sideToMove], end))
                             moves.add(new Move(start, end, i, -1, true, false, false, false));
@@ -310,10 +357,20 @@ public class MoveGenerator {
         return moves;
     }
 
-    public void sortMoves(List<Move> moves, Move pv, Position position) {
+    public void sortMoves(List<Move> moves, Move pv, Position position, int ply) {
+        Evaluation ttEval = transpositions.getEvaluationForPosition(position);
+        Move ttMove = null;
+        if (ttEval != null)
+            ttMove = ttEval.getMove();
+
+        final Move finalTtMove = ttMove;
         moves.sort(
                 (moveOne, moveTwo) -> {
                     if (moveOne.equals(moveTwo)) return 0;
+
+                    if (moveOne.equals(finalTtMove)) return -1;
+                    if (moveTwo.equals(finalTtMove)) return 1;
+
                     if (moveOne.equals(pv)) return -1;
                     if (moveTwo.equals(pv)) return 1;
 
@@ -336,9 +393,23 @@ public class MoveGenerator {
                     } else if (moveTwo.capture) {
                         return 1;
                     } else {
+                        if (isAKiller(moveOne, ply) && isAKiller(moveTwo, ply)) {
+                            boolean moveOneFirst = moveOne.equals(killers[ply][0]);
+
+                            return moveOneFirst ? -1 : 1;
+                        } else if (isAKiller(moveOne, ply)) {
+                            return -1;
+                        } else if (isAKiller(moveTwo, ply)) {
+                            return 1;
+                        }
+
                         return this.historicalMoveScores[moveTwo.pieceIdx][moveTwo.end]
                                 - this.historicalMoveScores[moveOne.pieceIdx][moveOne.end];
                     }
                 });
+    }
+
+    public boolean isAKiller(Move move, int ply) {
+        return move.equals(killers[ply][0]) || move.equals(killers[ply][1]);
     }
 }

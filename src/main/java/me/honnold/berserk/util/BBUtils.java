@@ -13,6 +13,10 @@ public class BBUtils {
         return getBit(bitboard, bit) ? (bitboard ^ (1L << bit)) : bitboard;
     }
 
+    public static long popLSB(long bitboard) {
+        return bitboard & (bitboard - 1);
+    }
+
     public static int countBits(long bitboard) {
         int count = 0;
         while (bitboard != 0) {
