@@ -19,8 +19,8 @@ public class TimeManager implements Runnable {
         try {
             long sleepTime = 0;
             while (sleepTime < this.timeout && running.get()) {
-                Thread.sleep(10);
-                sleepTime += 10;
+                Thread.sleep(2);
+                sleepTime += 2;
             }
             search.stop();
         } catch (InterruptedException ignored) {

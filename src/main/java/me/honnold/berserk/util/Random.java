@@ -2,7 +2,7 @@ package me.honnold.berserk.util;
 
 public class Random {
     private static final Random singleton = new Random();
-    private int state = 123;
+    private int state = 234;
 
     private Random() {}
 

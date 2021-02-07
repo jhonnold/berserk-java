@@ -5,24 +5,19 @@ import me.honnold.berserk.board.Position;
 import me.honnold.berserk.moves.Move;
 
 public class Transpositions {
-    private static final Transpositions singleton =
-            new Transpositions(10_000_000);
-    private final Evaluation[] evaluations;
-    private final int tableSize;
+    private static final Transpositions singleton = new Transpositions();
 
-    private Transpositions(int tableSize) {
-        this.tableSize = tableSize;
-        this.evaluations = new Evaluation[this.tableSize];
+    private final int power = 20;
+    private final int shifts = 64 - power;
+    private final Evaluation[] evaluations;
+    private final int bucketSize = 4;
+
+    private Transpositions() {
+        evaluations = new Evaluation[(int) ((1L << power) * bucketSize)];
     }
 
     public static Transpositions getInstance() {
         return singleton;
-    }
-
-    private int getTableIndex(long hash) {
-        int modulo = (int) (hash % tableSize);
-
-        return modulo < 0 ? modulo + tableSize : modulo;
     }
 
     public void clearEvaluations() {
@@ -32,16 +27,46 @@ public class Transpositions {
     public Evaluation getEvaluationForPosition(Position p) {
         int idx = getTableIndex(p.zHash);
 
-        Evaluation evaluation = evaluations[idx];
-        if (evaluation == null || evaluation.getHash() != p.zHash) return null;
+        for (int i = idx; i < idx + bucketSize; i++) {
+            Evaluation eval = evaluations[i];
+            if (eval == null) continue;
 
-        return evaluation;
+            if (eval.getHash() == p.zHash) return eval;
+        }
+
+        return null;
     }
 
-    public void putEvaluationForPosition(Position p, int depth, int score, EvaluationFlag flag, Move move) {
-        int idx = getTableIndex(p.zHash);
+    private int getTableIndex(long hash) {
+        return (int) (hash >>> shifts) << 1;
+    }
 
-        Evaluation evaluation = new Evaluation(p.zHash, depth, score, flag, move);
-        evaluations[idx] = evaluation;
+    public void putEvaluationForPosition(
+            Position p, int depth, int score, EvaluationFlag flag, Move move) {
+        final int idx = getTableIndex(p.zHash);
+        int replacedDepth = Integer.MAX_VALUE;
+        int replaceIdx = idx;
+        for (int i = idx; i < idx + bucketSize; i++) {
+            Evaluation eval = evaluations[i];
+            if (eval == null) {
+                replaceIdx = i;
+                break;
+            }
+
+            int evalDepth = eval.getDepth();
+            if (eval.getHash() == p.zHash) {
+                if (evalDepth > depth && flag != EvaluationFlag.EXACT) return;
+
+                replaceIdx = i;
+                break;
+            }
+
+            if (evalDepth < replacedDepth) {
+                replaceIdx = i;
+                replacedDepth = evalDepth;
+            }
+        }
+
+        evaluations[replaceIdx] = new Evaluation(p.zHash, depth, score, flag, move);
     }
 }

@@ -10,38 +10,15 @@ import me.honnold.berserk.tt.ZobristHash;
 import org.apache.commons.lang3.ArrayUtils;
 
 public class Position {
-    public static final String[] squares = {
-        "a8", "b8", "c8", "d8", "e8", "f8", "g8", "h8",
-        "a7", "b7", "c7", "d7", "e7", "f7", "g7", "h7",
-        "a6", "b6", "c6", "d6", "e6", "f6", "g6", "h6",
-        "a5", "b5", "c5", "d5", "e5", "f5", "g5", "h5",
-        "a4", "b4", "c4", "d4", "e4", "f4", "g4", "h4",
-        "a3", "b3", "c3", "d3", "e3", "f3", "g3", "h3",
-        "a2", "b2", "c2", "d2", "e2", "f2", "g2", "h2",
-        "a1", "b1", "c1", "d1", "e1", "f1", "g1", "h1",
-    };
-    public static final int[] castlingRights = {
-        14, 15, 15, 15, 12, 15, 15, 13,
-        15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15,
-        15, 15, 15, 15, 15, 15, 15, 15,
-        11, 15, 15, 15, 3, 15, 15, 7
-    };
-    public static final char[] pieceSymbols = {
-        'P', 'p', 'N', 'n', 'B', 'b', 'R', 'r', 'Q', 'q', 'K', 'k'
-    };
-    public static int[] pawnDirections = {-8, 8};
-    private final ZobristHash hasher = ZobristHash.getInstance();
+    private final AttackMasks attackMasks = AttackMasks.getInstance();
+    private final ZobristHash hashUtil = ZobristHash.getInstance();
+
     public long[] pieceBitboards = new long[12];
     public long[] occupancyBitboards = new long[3];
-    public int sideToMove;
-    public int castling;
+    public byte sideToMove;
+    public byte castling;
     public int epSquare;
-    public long zHash = 0;
-    private long pawnHash = 0;
+    public long zHash;
 
     public Position(String fen) {
         String[] parts = fen.split("\\s+");
@@ -59,7 +36,7 @@ public class Position {
             }
         }
 
-        sideToMove = "w".equals(parts[1]) ? 0 : 1;
+        sideToMove = (byte) ("w".equals(parts[1]) ? 0 : 1);
 
         castling = 0;
         if (parts[2].contains("K")) castling |= 0x8;
@@ -72,7 +49,7 @@ public class Position {
         for (int i = 0; i < 12; i++) occupancyBitboards[i % 2] |= pieceBitboards[i];
         occupancyBitboards[2] = occupancyBitboards[0] | occupancyBitboards[1];
 
-        this.zHash = hasher.getZobristHash(this);
+        this.zHash = hashUtil.getZobristHash(this);
     }
 
     public Position(Position p) {
@@ -89,120 +66,103 @@ public class Position {
     }
 
     public boolean makeMove(Move m) {
-        int start = m.start;
-        int end = m.end;
-        int piece = m.pieceIdx;
-        int promotionPiece = m.promotionPiece;
-
-        if (end < 0 || piece < 0) {
-            System.out.println(piece);
-            System.out.println(end);
-        }
+        int start = m.getStart();
+        int end = m.getEnd();
+        int piece = m.getPieceIdx();
+        int promotionPiece = m.getPromotionPiece();
 
         this.pieceBitboards[piece] = popBit(this.pieceBitboards[piece], start);
-        this.zHash ^= hasher.getPieceKey(piece, start);
-        if (piece <= 1) this.pawnHash ^= hasher.getPieceKey(piece, start);
+        this.zHash ^= hashUtil.getPieceKey(piece, start);
 
         this.pieceBitboards[piece] = setBit(this.pieceBitboards[piece], end);
-        this.zHash ^= hasher.getPieceKey(piece, end);
-        if (piece <= 1) this.pawnHash ^= hasher.getPieceKey(piece, end);
+        this.zHash ^= hashUtil.getPieceKey(piece, end);
 
-        if (m.capture) {
+        if (m.isCapture()) {
             for (int i = (1 - sideToMove); i < 12; i += 2) {
                 if (getBit(this.pieceBitboards[i], end)) {
                     this.pieceBitboards[i] = popBit(this.pieceBitboards[i], end);
-                    this.zHash ^= hasher.getPieceKey(i, end);
-                    if (i <= 1) this.pawnHash ^= hasher.getPieceKey(i, end);
+                    this.zHash ^= hashUtil.getPieceKey(i, end);
                     break;
                 }
             }
         }
 
-        if (promotionPiece >= 0) {
+        if (m.isPromotion()) {
             this.pieceBitboards[sideToMove] = popBit(this.pieceBitboards[sideToMove], end);
-            this.zHash ^= hasher.getPieceKey(sideToMove, end);
-            this.pawnHash ^= hasher.getPieceKey(sideToMove, end);
+            this.zHash ^= hashUtil.getPieceKey(sideToMove, end);
 
             this.pieceBitboards[promotionPiece] = setBit(this.pieceBitboards[promotionPiece], end);
-            this.zHash ^= hasher.getPieceKey(promotionPiece, end);
+            this.zHash ^= hashUtil.getPieceKey(promotionPiece, end);
         }
 
-        if (m.epCapture) {
+        if (m.isEPCapture()) {
             this.pieceBitboards[1 - sideToMove] =
                     popBit(
                             this.pieceBitboards[1 - sideToMove],
                             end - pawnDirections[this.sideToMove]);
-            this.zHash ^= hasher.getPieceKey(1 - sideToMove, end - pawnDirections[sideToMove]);
-            this.pawnHash ^= hasher.getPieceKey(1 - sideToMove, end - pawnDirections[sideToMove]);
+            this.zHash ^= hashUtil.getPieceKey(1 - sideToMove, end - pawnDirections[sideToMove]);
         }
 
         if (this.epSquare != -1) {
-            this.zHash ^= hasher.getEpKey(this.epSquare);
+            this.zHash ^= hashUtil.getEpKey(this.epSquare);
             this.epSquare = -1;
         }
 
-        if (m.doublePush) {
+        if (m.isDoublePush()) {
             this.epSquare = end - pawnDirections[this.sideToMove];
-            this.zHash ^= hasher.getEpKey(this.epSquare);
+            this.zHash ^= hashUtil.getEpKey(this.epSquare);
         }
 
-        if (m.castle) {
+        if (m.isCastle()) {
             switch (end) {
                 case 62:
                     this.pieceBitboards[6] = popBit(this.pieceBitboards[6], 63);
-                    this.zHash ^= hasher.getPieceKey(6, 63);
+                    this.zHash ^= hashUtil.getPieceKey(6, 63);
 
                     this.pieceBitboards[6] = setBit(this.pieceBitboards[6], 61);
-                    this.zHash ^= hasher.getPieceKey(6, 61);
+                    this.zHash ^= hashUtil.getPieceKey(6, 61);
                     break;
                 case 58:
                     this.pieceBitboards[6] = popBit(this.pieceBitboards[6], 56);
-                    this.zHash ^= hasher.getPieceKey(6, 56);
+                    this.zHash ^= hashUtil.getPieceKey(6, 56);
 
                     this.pieceBitboards[6] = setBit(this.pieceBitboards[6], 59);
-                    this.zHash ^= hasher.getPieceKey(6, 59);
+                    this.zHash ^= hashUtil.getPieceKey(6, 59);
                     break;
                 case 6:
                     this.pieceBitboards[7] = popBit(this.pieceBitboards[7], 7);
-                    this.zHash ^= hasher.getPieceKey(7, 7);
+                    this.zHash ^= hashUtil.getPieceKey(7, 7);
 
                     this.pieceBitboards[7] = setBit(this.pieceBitboards[7], 5);
-                    this.zHash ^= hasher.getPieceKey(7, 5);
+                    this.zHash ^= hashUtil.getPieceKey(7, 5);
                     break;
                 case 2:
                     this.pieceBitboards[7] = popBit(this.pieceBitboards[7], 0);
-                    this.zHash ^= hasher.getPieceKey(7, 0);
+                    this.zHash ^= hashUtil.getPieceKey(7, 0);
 
                     this.pieceBitboards[7] = setBit(this.pieceBitboards[7], 3);
-                    this.zHash ^= hasher.getPieceKey(7, 3);
+                    this.zHash ^= hashUtil.getPieceKey(7, 3);
                     break;
             }
         }
 
-        this.zHash ^= hasher.getCastleKey(this.castling);
+        this.zHash ^= hashUtil.getCastleKey(this.castling);
         this.castling &= castlingRights[start];
         this.castling &= castlingRights[end];
-        this.zHash ^= hasher.getCastleKey(this.castling);
+        this.zHash ^= hashUtil.getCastleKey(this.castling);
 
         Arrays.fill(this.occupancyBitboards, 0L);
         for (int i = 0; i < 12; i++) occupancyBitboards[i % 2] |= pieceBitboards[i];
 
         occupancyBitboards[2] = occupancyBitboards[0] | occupancyBitboards[1];
 
-        this.sideToMove = 1 - this.sideToMove;
+        this.sideToMove ^= 1;
 
         return !isSquareAttacked(
                 getLSBIndex(this.pieceBitboards[11 - this.sideToMove]), this.sideToMove);
     }
 
-    public boolean inCheck() {
-        return this.isSquareAttacked(
-                getLSBIndex(pieceBitboards[10 + this.sideToMove]), 1 - this.sideToMove);
-    }
-
     public boolean isSquareAttacked(int square, int bySide) {
-        AttackMasks attackMasks = AttackMasks.getInstance();
-
         if (square == -1) return false;
 
         if ((attackMasks.getPawnAttacks(1 - bySide, square) & pieceBitboards[bySide]) != 0)
@@ -220,12 +180,19 @@ public class Position {
         return (attackMasks.getKingAttacks(square) & pieceBitboards[10 + bySide]) != 0;
     }
 
+    public boolean inCheck() {
+        return this.isSquareAttacked(
+                getLSBIndex(pieceBitboards[10 + this.sideToMove]), 1 - this.sideToMove);
+    }
+
     public int getCapturedPieceIdx(int captureSquare) {
         for (int i = 0; i < 12; i++) {
             long bb = pieceBitboards[i];
 
             if (getBit(bb, captureSquare)) return i;
         }
+
+        if (captureSquare == this.epSquare) return 1 - this.sideToMove;
 
         return -1;
     }
@@ -266,10 +233,6 @@ public class Position {
         if (castling == 0) builder.append("-");
 
         return builder.append("\n\n").toString();
-    }
-
-    public long getPawnHash() {
-        return pawnHash;
     }
 
     public GameStage getGameStage() {

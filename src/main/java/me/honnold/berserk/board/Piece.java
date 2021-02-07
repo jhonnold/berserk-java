@@ -17,8 +17,8 @@ public class Piece {
     };
 
     private static final int[][] pieceValues = {
-        {78, 300, 350, 475, 950, 50000},
-        {90, 275, 325, 550, 900, 50000},
+        {90, 300, 350, 475, 950, 50000},
+        {110, 275, 325, 550, 900, 50000},
     };
 
     private static final int[] mirror = {

@@ -1,29 +1,30 @@
 package me.honnold.berserk.eval;
 
-import static me.honnold.berserk.util.BBUtils.*;
+import static me.honnold.berserk.util.BBUtils.getLSBIndex;
+import static me.honnold.berserk.util.BBUtils.popLSB;
 
 import me.honnold.berserk.board.GameStage;
 import me.honnold.berserk.board.Piece;
 import me.honnold.berserk.board.Position;
 
 public class PositionEvaluations {
-    private static final int EVAL_TABLE_SIZE = 10_000_000;
     private static final PositionEvaluations POSITION_EVALUATION = new PositionEvaluations();
-    private final int[] evaluations = new int[EVAL_TABLE_SIZE];
-    private final long[] hashes = new long[EVAL_TABLE_SIZE];
+    private final int power = 12;
+    private final int shifts = 64 - power;
+    private final int[] evaluations;
 
-    private PositionEvaluations() {}
+    private PositionEvaluations() {
+        evaluations = new int[(1 << power) * 2];
+    }
 
     public static PositionEvaluations getInstance() {
         return POSITION_EVALUATION;
     }
 
     public int positionEvaluation(Position position) {
-        int idx = getEvalTableIdx(position);
+        int idx = getEvalTableIdx(position.zHash);
 
-        int determined = evaluations[idx];
-        long hash = hashes[idx];
-        if (hash == position.zHash) return determined;
+        if (evaluations[idx] == (int) position.zHash) return evaluations[idx + 1];
 
         int score = 0;
 
@@ -49,14 +50,14 @@ public class PositionEvaluations {
             }
         }
 
-        evaluations[idx] = score;
-        hashes[idx] = position.zHash;
+        idx = getEvalTableIdx(position.zHash);
+        evaluations[idx] = (int) position.zHash;
+        evaluations[idx + 1] = score;
+
         return score;
     }
 
-    private int getEvalTableIdx(Position position) {
-        int modulo = (int) (position.zHash % EVAL_TABLE_SIZE);
-
-        return modulo < 0 ? modulo + EVAL_TABLE_SIZE : modulo;
+    private int getEvalTableIdx(long hash) {
+        return (int) (hash >>> shifts) << 1;
     }
 }
