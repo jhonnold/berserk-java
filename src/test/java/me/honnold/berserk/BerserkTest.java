@@ -4,6 +4,8 @@ import me.honnold.berserk.board.Position;
 import me.honnold.berserk.moves.Move;
 import me.honnold.berserk.util.EPD;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvFileSource;
@@ -39,6 +41,12 @@ public class BerserkTest {
 
     private static Stream<Arguments> getWAC() throws IOException {
         List<EPD.EPDAnalysis> pairs = EPD.epdReader("/winAtChess.epd");
+
+        return pairs.stream().map(Arguments::of);
+    }
+
+    private static Stream<Arguments> getSTS7() throws IOException {
+        List<EPD.EPDAnalysis> pairs = EPD.epdReader("/STS7.epd");
 
         return pairs.stream().map(Arguments::of);
     }
@@ -105,7 +113,7 @@ public class BerserkTest {
         System.out.println(epdAnalysis.position);
         System.out.println("Expected " + (epdAnalysis.isBest ? "best" : "avoid") + " move: " + epdAnalysis.move);
 
-        Thread wait = berserk.searchForTime(epdAnalysis.position, 15000);
+        Thread wait = berserk.searchForTime(epdAnalysis.position, 2500);
         wait.join();
 
         Move testResult = berserk.getSearchResults().getBestMove();
@@ -125,6 +133,25 @@ public class BerserkTest {
         System.out.println("Expected " + (epdAnalysis.isBest ? "best" : "avoid") + " move: " + epdAnalysis.move);
 
         Thread wait = berserk.searchForTime(epdAnalysis.position, 2500);
+        wait.join();
+
+        Move testResult = berserk.getSearchResults().getBestMove();
+
+        if (epdAnalysis.isBest) {
+            assertEquals(epdAnalysis.move, testResult);
+        } else {
+            assertNotEquals(epdAnalysis.move, testResult);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("getSTS7")
+    void sts7Test(EPD.EPDAnalysis epdAnalysis) throws InterruptedException {
+        System.out.println("Running test for " + epdAnalysis.id);
+        System.out.println(epdAnalysis.position);
+        System.out.println("Expected " + (epdAnalysis.isBest ? "best" : "avoid") + " move: " + epdAnalysis.move);
+
+        Thread wait = berserk.searchForTime(epdAnalysis.position, 10000);
         wait.join();
 
         Move testResult = berserk.getSearchResults().getBestMove();

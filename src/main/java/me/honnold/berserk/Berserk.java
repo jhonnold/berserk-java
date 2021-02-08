@@ -90,7 +90,7 @@ public class Berserk {
                 int divisor =
                         movesToGoIdx > 0
                                 ? Math.max(2, Integer.parseInt(tokens[movesToGoIdx]))
-                                : (hasInc ? 10 : 40);
+                                : (hasInc ? 20 : 40);
 
                 timeToUse = time / divisor;
                 if (timeToUse > 60000) timeToUse = 60000;
