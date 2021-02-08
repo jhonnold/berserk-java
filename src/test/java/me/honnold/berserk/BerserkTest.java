@@ -1,27 +1,47 @@
 package me.honnold.berserk;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 import me.honnold.berserk.board.Position;
 import me.honnold.berserk.moves.Move;
-import me.honnold.berserk.util.BBUtils;
 import me.honnold.berserk.util.EPD;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.lang3.tuple.Triple;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvFileSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+
 public class BerserkTest {
     private Berserk berserk;
+
+    private static Stream<Arguments> getEigenmannRapidEngineTest() throws IOException {
+        List<EPD.EPDAnalysis> pairs = EPD.epdReader("/eigenmannRapidEngineTest.epd");
+
+        return pairs.stream().map(Arguments::of);
+    }
+
+    private static Stream<Arguments> getKaufmanTest() throws IOException {
+        List<EPD.EPDAnalysis> pairs = EPD.epdReader("/kaufmanTest.epd");
+
+        return pairs.stream().map(Arguments::of);
+    }
+
+    private static Stream<Arguments> getSBD() throws IOException {
+        List<EPD.EPDAnalysis> pairs = EPD.epdReader("/sbd.epd");
+
+        return pairs.stream().map(Arguments::of);
+    }
+
+    private static Stream<Arguments> getWAC() throws IOException {
+        List<EPD.EPDAnalysis> pairs = EPD.epdReader("/winAtChess.epd");
+
+        return pairs.stream().map(Arguments::of);
+    }
 
     @BeforeEach
     void setup() {
@@ -42,61 +62,77 @@ public class BerserkTest {
 
     @ParameterizedTest
     @MethodSource("getEigenmannRapidEngineTest")
-    void eigenmannRapidEngineTest(String id, Position position, Move bestMove) throws InterruptedException {
-        System.out.println("Running test for " + id);
-        System.out.println(position);
-        System.out.println("Expected best move: " + bestMove);
+    void eigenmannRapidEngineTest(EPD.EPDAnalysis epdAnalysis) throws InterruptedException {
+        System.out.println("Running test for " + epdAnalysis.id);
+        System.out.println(epdAnalysis.position);
+        System.out.println("Expected " + (epdAnalysis.isBest ? "best" : "avoid") + " move: " + epdAnalysis.move);
 
-        Thread wait = berserk.searchForTime(position, 15000);
+        Thread wait = berserk.searchForTime(epdAnalysis.position, 15000);
         wait.join();
 
         Move testResult = berserk.getSearchResults().getBestMove();
-        assertEquals(bestMove, testResult);
+
+        if (epdAnalysis.isBest) {
+            assertEquals(epdAnalysis.move, testResult);
+        } else {
+            assertNotEquals(epdAnalysis.move, testResult);
+        }
     }
 
     @ParameterizedTest
     @MethodSource("getKaufmanTest")
-    void kaufmanTest(String id, Position position, Move bestMove) throws InterruptedException {
-        System.out.println("Running test for " + id);
-        System.out.println(position);
-        System.out.println("Expected best move: " + bestMove);
+    void kaufmanTest(EPD.EPDAnalysis epdAnalysis) throws InterruptedException {
+        System.out.println("Running test for " + epdAnalysis.id);
+        System.out.println(epdAnalysis.position);
+        System.out.println("Expected " + (epdAnalysis.isBest ? "best" : "avoid") + " move: " + epdAnalysis.move);
 
-        Thread wait = berserk.searchForTime(position, 15000);
+        Thread wait = berserk.searchForTime(epdAnalysis.position, 15000);
         wait.join();
 
         Move testResult = berserk.getSearchResults().getBestMove();
-        assertEquals(bestMove, testResult);
+
+        if (epdAnalysis.isBest) {
+            assertEquals(epdAnalysis.move, testResult);
+        } else {
+            assertNotEquals(epdAnalysis.move, testResult);
+        }
     }
 
     @ParameterizedTest
     @MethodSource("getSBD")
-    void sbdTest(String id, Position position, Move bestMove) throws InterruptedException {
-        System.out.println("Running test for " + id);
-        System.out.println(position);
-        System.out.println("Expected best move: " + bestMove);
+    void sbdTest(EPD.EPDAnalysis epdAnalysis) throws InterruptedException {
+        System.out.println("Running test for " + epdAnalysis.id);
+        System.out.println(epdAnalysis.position);
+        System.out.println("Expected " + (epdAnalysis.isBest ? "best" : "avoid") + " move: " + epdAnalysis.move);
 
-        Thread wait = berserk.searchForTime(position, 2500);
+        Thread wait = berserk.searchForTime(epdAnalysis.position, 15000);
         wait.join();
 
         Move testResult = berserk.getSearchResults().getBestMove();
-        assertEquals(bestMove, testResult);
+
+        if (epdAnalysis.isBest) {
+            assertEquals(epdAnalysis.move, testResult);
+        } else {
+            assertNotEquals(epdAnalysis.move, testResult);
+        }
     }
 
-    private static Stream<Arguments> getEigenmannRapidEngineTest() throws IOException {
-        List<Triple<String, Position, Move>> pairs = EPD.epdReader("/eigenmannRapidEngineTest.epd");
+    @ParameterizedTest
+    @MethodSource("getWAC")
+    void wacTest(EPD.EPDAnalysis epdAnalysis) throws InterruptedException {
+        System.out.println("Running test for " + epdAnalysis.id);
+        System.out.println(epdAnalysis.position);
+        System.out.println("Expected " + (epdAnalysis.isBest ? "best" : "avoid") + " move: " + epdAnalysis.move);
 
-        return pairs.stream().map(t -> Arguments.of(t.getLeft(), t.getMiddle(), t.getRight()));
-    }
+        Thread wait = berserk.searchForTime(epdAnalysis.position, 2500);
+        wait.join();
 
-    private static Stream<Arguments> getKaufmanTest() throws IOException {
-        List<Triple<String, Position, Move>> pairs = EPD.epdReader("/kaufmanTest.epd");
+        Move testResult = berserk.getSearchResults().getBestMove();
 
-        return pairs.stream().map(t -> Arguments.of(t.getLeft(), t.getMiddle(), t.getRight()));
-    }
-
-    private static Stream<Arguments> getSBD() throws IOException {
-        List<Triple<String, Position, Move>> pairs = EPD.epdReader("/sbd.epd");
-
-        return pairs.stream().map(t -> Arguments.of(t.getLeft(), t.getMiddle(), t.getRight()));
+        if (epdAnalysis.isBest) {
+            assertEquals(epdAnalysis.move, testResult);
+        } else {
+            assertNotEquals(epdAnalysis.move, testResult);
+        }
     }
 }
