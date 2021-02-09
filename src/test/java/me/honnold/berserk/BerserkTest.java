@@ -157,7 +157,7 @@ public class BerserkTest {
         Move testResult = berserk.getSearchResults().getBestMove();
 
         if (epdAnalysis.isBest) {
-            assertEquals(epdAnalysis.move, testResult);
+             assertEquals(epdAnalysis.move, testResult);
         } else {
             assertNotEquals(epdAnalysis.move, testResult);
         }

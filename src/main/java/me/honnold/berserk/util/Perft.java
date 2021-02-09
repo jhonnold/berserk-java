@@ -18,14 +18,15 @@ public class Perft {
 
         long start = System.nanoTime();
         for (Move m : moveGenerator.getAllMoves(startingPos)) {
-            Position next = new Position(startingPos);
-            boolean validMove = next.makeMove(m);
+            boolean validMove = startingPos.makeMove(m);
 
             if (validMove) {
-                long nodes = perft.perft(next, depth - 1);
+                long nodes = perft.perft(startingPos, depth - 1);
                 System.out.printf("%s: %d%n", m, nodes);
                 result += nodes;
             }
+
+            startingPos.undoMove(m);
         }
         long end = System.nanoTime();
 
@@ -40,10 +41,11 @@ public class Perft {
         if (depth == 0) return 1;
 
         for (Move m : moveGenerator.getAllMoves(position)) {
-            Position next = new Position(position);
-            boolean validMove = next.makeMove(m);
+            boolean validMove = position.makeMove(m);
 
-            if (validMove) nodes += perft(next, depth - 1);
+            if (validMove) nodes += perft(position, depth - 1);
+
+            position.undoMove(m);
         }
 
         return nodes;

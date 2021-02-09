@@ -30,10 +30,10 @@ public class PVS implements Runnable {
     private final Repetitions repetitions = Repetitions.getInstance();
     private final int[] pvLength = new int[MAX_DEPTH];
     private final Move[][] pvTable = new Move[MAX_DEPTH][MAX_DEPTH];
+    private final Move[] moves = new Move[100 * MAX_DEPTH];
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final MoveGenerator moveGenerator = MoveGenerator.getInstance();
     private final Transpositions transpositions = Transpositions.getInstance();
-    private final ZobristHash hash = ZobristHash.getInstance();
     private final Position root;
     private final Results results;
 
@@ -110,7 +110,6 @@ public class PVS implements Runnable {
 
         int score = -Constants.CHECKMATE_MAX, bestScore = score, alphaOg = alpha;
         Move bestMove = null;
-        Position nextPosition = new Position(position);
 
         int staticEval = position.getValue();
         if (!isPv && !inCheck) {
@@ -148,19 +147,13 @@ public class PVS implements Runnable {
                     && position.getGameStage() != GameStage.ENDGAME) {
                 int R = depth / 4 + 3 + Math.min((staticEval - beta) / 80, 3);
 
-                // Make the null move
-                if (nextPosition.epSquare != -1)
-                    nextPosition.zHash ^= hash.getEpKey(nextPosition.epSquare);
-                nextPosition.epSquare = -1;
-
-                nextPosition.sideToMove ^= 1;
-                nextPosition.zHash ^= hash.getSideKey();
-
-                repetitions.add(nextPosition.zHash);
+                position.nullMove();
+                repetitions.add(position.zHash);
 
                 int newDepth = Math.max(0, depth - R);
-                score = -pvSearch(-beta, -beta + 1, newDepth, ply, false, nextPosition);
+                score = -pvSearch(-beta, -beta + 1, newDepth, ply + 1, false, position);
 
+                position.undoNullMove();
                 repetitions.pop();
 
                 if (!running.get()) return 0;
@@ -184,14 +177,17 @@ public class PVS implements Runnable {
 
         boolean hasLegalMove = false;
 
-        for (int i = 0; i < moves.size(); i++) {
-            Move move = moves.get(i);
-            nextPosition = new Position(position);
-            boolean isValid = nextPosition.makeMove(move);
-            if (!isValid) continue;
-            hasLegalMove = true;
+        int searches = 0;
+        for (Move move : moves) {
+            boolean isValid = position.makeMove(move);
+            if (!isValid) {
+                position.undoMove(move);
+                continue;
+            }
 
-            repetitions.add(nextPosition.zHash);
+            hasLegalMove = true;
+            searches++;
+            repetitions.add(position.zHash);
 
             // TODO: Add material draw and 50 move rep here
             if (repetitions.isRepetition()) {
@@ -202,7 +198,8 @@ public class PVS implements Runnable {
                         && !move.isCapture()
                         && !move.isEPCapture()
                         && !move.isPromotion()
-                        && !nextPosition.inCheck()) {
+                        && !position.inCheck()) {
+                    position.undoMove(move);
                     repetitions.pop();
                     this.results.incFutilityPrunes();
                     continue;
@@ -213,11 +210,11 @@ public class PVS implements Runnable {
                 int reductionDepth = 1;
 
                 if (depth > 2
-                        && i > 0
+                        && searches > 1
                         && !move.isCapture()
                         && !move.isEPCapture()
                         && !move.isPromotion()) {
-                    reductionDepth = LMR_TABLE[Math.min(depth, 63)][Math.min(i, 63)];
+                    reductionDepth = LMR_TABLE[Math.min(depth, 63)][Math.min(searches, 63)];
 
                     if (moveGenerator.isAKiller(move, ply)) reductionDepth--;
 
@@ -234,18 +231,19 @@ public class PVS implements Runnable {
                                     depth - reductionDepth,
                                     ply + 1,
                                     true,
-                                    nextPosition);
+                                    position);
                 }
 
-                if (score > alpha && i > 0) {
-                    score = -pvSearch(-alpha - 1, -alpha, depth - 1, ply + 1, true, nextPosition);
+                if (score > alpha && searches > 1) {
+                    score = -pvSearch(-alpha - 1, -alpha, depth - 1, ply + 1, true, position);
                 }
 
                 if (score > alpha) {
-                    score = -pvSearch(-beta, -alpha, depth - 1, ply + 1, true, nextPosition);
+                    score = -pvSearch(-beta, -alpha, depth - 1, ply + 1, true, position);
                 }
             }
 
+            position.undoMove(move);
             repetitions.pop();
 
             if (!running.get()) return 0;
@@ -274,7 +272,7 @@ public class PVS implements Runnable {
                 if (alpha >= beta) {
                     this.results.incFailHighs();
 
-                    if (!move.isCapture() && !move.isEPCapture() && !nextPosition.inCheck())
+                    if (!move.isCapture() && !move.isEPCapture())
                         moveGenerator.addKiller(move, ply);
 
                     break;
@@ -344,11 +342,14 @@ public class PVS implements Runnable {
                 continue;
             }
 
-            Position next = new Position(position);
-            boolean isValid = next.makeMove(m);
-            if (!isValid) continue;
+            boolean isValid = position.makeMove(m);
+            if (!isValid) {
+                position.undoMove(m);
+                continue;
+            }
 
-            int score = -1 * quiesce(-beta, -alpha, next);
+            int score = -1 * quiesce(-beta, -alpha, position);
+            position.undoMove(m);
 
             if (!running.get()) return 0;
 

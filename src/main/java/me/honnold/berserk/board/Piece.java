@@ -17,8 +17,9 @@ public class Piece {
     };
 
     private static final int[][] pieceValues = {
-        {90, 300, 350, 475, 950, 50000},
-        {110, 275, 325, 550, 900, 50000},
+        // Komodo's values
+        {60, 310, 323, 435, 910, 50000},
+        {93, 310, 323, 548, 970, 50000},
     };
 
     private static final int[] mirror = {

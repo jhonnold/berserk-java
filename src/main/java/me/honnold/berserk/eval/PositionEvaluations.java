@@ -26,6 +26,17 @@ public class PositionEvaluations {
 
         if (evaluations[idx] == (int) position.zHash) return evaluations[idx + 1];
 
+        int score = this.myPieceValue(position);
+        score -= this.opponentPieceValue(position);
+
+        idx = getEvalTableIdx(position.zHash);
+        evaluations[idx] = (int) position.zHash;
+        evaluations[idx + 1] = score;
+
+        return score;
+    }
+
+    private int myPieceValue(Position position) {
         int score = 0;
 
         GameStage stage = position.getGameStage();
@@ -40,19 +51,22 @@ public class PositionEvaluations {
             }
         }
 
+        return score;
+    }
+
+    private int opponentPieceValue(Position position) {
+        int score = 0;
+        GameStage stage = position.getGameStage();
+
         for (int i = 1 - position.sideToMove; i < 12; i += 2) {
             long bb = position.pieceBitboards[i];
             while (bb != 0) {
                 int sq = getLSBIndex(bb);
                 bb = popLSB(bb);
 
-                score -= Piece.getPieceValue(i, stage) + Piece.getPositionValue(i, sq, stage);
+                score += Piece.getPieceValue(i, stage) + Piece.getPositionValue(i, sq, stage);
             }
         }
-
-        idx = getEvalTableIdx(position.zHash);
-        evaluations[idx] = (int) position.zHash;
-        evaluations[idx + 1] = score;
 
         return score;
     }

@@ -41,14 +41,14 @@ public class MoveGenerator {
     }
 
     public List<Move> getAllMoves(final Position position) {
-        final List<Move> moves = new ArrayList<>(128);
+        final List<Move> moves = new LinkedList<>();
 
+        this.addAllPawnMoves(position, moves);
         this.addAllKingMoves(position, moves);
         this.addAllKnightMoves(position, moves);
         this.addAllBishopMoves(position, moves);
         this.addAllRookMoves(position, moves);
         this.addAllQueenMoves(position, moves);
-        this.addAllPawnMoves(position, moves);
 
         return moves;
     }
