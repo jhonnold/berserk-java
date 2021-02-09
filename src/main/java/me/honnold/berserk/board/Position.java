@@ -14,7 +14,6 @@ public class Position {
     private final AttackMasks attackMasks = AttackMasks.getInstance();
     private final ZobristHash hashUtil = ZobristHash.getInstance();
 
-
     public long[] pieceBitboards = new long[12];
     public long[] occupancyBitboards = new long[3];
     public byte sideToMove;
@@ -24,12 +23,12 @@ public class Position {
     private GameStage stage = null;
 
     private int moves = 0;
-    private long[] zHashHistory = new long[512];
-    private byte[] castleHistroy = new byte[512];
-    private int[] epHistory = new int[512];
+    private final long[] zHashHistory = new long[512];
+    private final byte[] castleHistory = new byte[512];
+    private final int[] epHistory = new int[512];
 
     private int captures = 0;
-    private int[] captureHistory = new int[32];
+    private final int[] captureHistory = new int[32];
 
     public Position(String fen) {
         String[] parts = fen.split("\\s+");
@@ -62,17 +61,6 @@ public class Position {
 
         this.zHash = hashUtil.getZobristHash(this);
         Arrays.fill(captureHistory, -1);
-    }
-
-    public Position(Position p) {
-        Arrays.fill(captureHistory, -1);
-
-        this.pieceBitboards = p.pieceBitboards.clone();
-        this.occupancyBitboards = p.occupancyBitboards.clone();
-        this.sideToMove = p.sideToMove;
-        this.castling = p.castling;
-        this.epSquare = p.epSquare;
-        this.zHash = p.zHash;
     }
 
     public int getValue() {
@@ -136,7 +124,7 @@ public class Position {
 
         this.zHash = zHashHistory[moves];
         this.epSquare = epHistory[moves];
-        this.castling = castleHistroy[moves];
+        this.castling = castleHistory[moves];
     }
 
     private int popCapture() {
@@ -159,7 +147,7 @@ public class Position {
     private void savePositionHistory() {
         zHashHistory[moves] = this.zHash;
         epHistory[moves] = this.epSquare;
-        castleHistroy[moves] = this.castling;
+        castleHistory[moves] = this.castling;
 
         moves++;
     }

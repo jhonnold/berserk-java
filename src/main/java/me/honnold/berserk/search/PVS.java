@@ -1,7 +1,5 @@
 package me.honnold.berserk.search;
 
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import me.honnold.berserk.board.GameStage;
 import me.honnold.berserk.board.Piece;
 import me.honnold.berserk.board.Position;
@@ -11,7 +9,9 @@ import me.honnold.berserk.moves.MoveGenerator;
 import me.honnold.berserk.tt.Evaluation;
 import me.honnold.berserk.tt.EvaluationFlag;
 import me.honnold.berserk.tt.Transpositions;
-import me.honnold.berserk.tt.ZobristHash;
+
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PVS implements Runnable {
     public static final int MAX_DEPTH = 100;
@@ -30,7 +30,6 @@ public class PVS implements Runnable {
     private final Repetitions repetitions = Repetitions.getInstance();
     private final int[] pvLength = new int[MAX_DEPTH];
     private final Move[][] pvTable = new Move[MAX_DEPTH][MAX_DEPTH];
-    private final Move[] moves = new Move[100 * MAX_DEPTH];
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final MoveGenerator moveGenerator = MoveGenerator.getInstance();
     private final Transpositions transpositions = Transpositions.getInstance();
@@ -171,6 +170,7 @@ public class PVS implements Runnable {
                 && !inCheck
                 && Math.abs(alpha) < Constants.CHECKMATE_MIN
                 && staticEval + futilityMargins[depth] <= alpha) enableFutilityPruning = true;
+
 
         List<Move> moves = moveGenerator.getAllMoves(position);
         moveGenerator.sortMoves(moves, pvTable[0][ply], position, ply);
@@ -316,9 +316,9 @@ public class PVS implements Runnable {
         if (evaluation != null) {
             if (evaluation.getFlag() == EvaluationFlag.EXACT
                     || evaluation.getFlag() == EvaluationFlag.UPPER
-                            && evaluation.getScore() < staticEval
+                    && evaluation.getScore() < staticEval
                     || evaluation.getFlag() == EvaluationFlag.LOWER
-                            && evaluation.getScore() > staticEval) {
+                    && evaluation.getScore() > staticEval) {
                 staticEval = evaluation.getScore();
             }
         }
@@ -329,15 +329,14 @@ public class PVS implements Runnable {
 
         GameStage stage = position.getGameStage();
 
-        List<Move> moves = moveGenerator.getAllMoves(position);
+        List<Move> moves = moveGenerator.getAllCapturesAndPromotions(position);
 
         for (Move m : moves) {
-            if (!m.isCapture() && !m.isEPCapture() && !m.isPromotion()) continue;
             if (m.isPromotion()) {
                 if (m.getPromotionPiece() < 8) continue;
             } else if (staticEval
-                            + 200
-                            + Piece.getPieceValue(position.getCapturedPieceIdx(m.getEnd()), stage)
+                    + 200
+                    + Piece.getPieceValue(position.getCapturedPieceIdx(m.getEnd()), stage)
                     < alpha) {
                 continue;
             }
@@ -366,8 +365,8 @@ public class PVS implements Runnable {
                 Math.abs(score) <= Constants.CHECKMATE_MIN
                         ? score
                         : score < -Constants.CHECKMATE_MIN
-                                ? -((Constants.CHECKMATE_MAX + score) / 2 + 1)
-                                : (Constants.CHECKMATE_MAX - score) / 2 + 1;
+                        ? -((Constants.CHECKMATE_MAX + score) / 2 + 1)
+                        : (Constants.CHECKMATE_MAX - score) / 2 + 1;
 
         String output =
                 "info depth "
@@ -379,10 +378,10 @@ public class PVS implements Runnable {
                         + results.getNodes()
                         + " nps "
                         + String.format(
-                                "%.0f",
-                                1_000_000_000.0
-                                        * results.getNodes()
-                                        / (System.nanoTime() - results.getStartTime()))
+                        "%.0f",
+                        1_000_000_000.0
+                                * results.getNodes()
+                                / (System.nanoTime() - results.getStartTime()))
                         + " pv "
                         + getPv();
         System.out.println(output);

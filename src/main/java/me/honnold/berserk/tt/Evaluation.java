@@ -7,14 +7,14 @@ public class Evaluation {
     private final int depth;
     private final int score;
     private final EvaluationFlag flag;
-    private final Move move;
+    private final int move;
 
     public Evaluation(long hash, int depth, int score, EvaluationFlag flag, Move move) {
         this.hash = hash;
         this.depth = depth;
         this.score = score;
         this.flag = flag;
-        this.move = move;
+        this.move = move != null ? move.getRawData() : 0;
     }
 
     public long getHash() {
@@ -34,6 +34,6 @@ public class Evaluation {
     }
 
     public Move getMove() {
-        return move;
+        return new Move(move);
     }
 }

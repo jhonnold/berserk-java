@@ -10,6 +10,10 @@ public class Move {
 
     private int data;
 
+    public Move(int data) {
+        this.data = data;
+    }
+
     public Move(
             int start,
             int end,
@@ -28,6 +32,10 @@ public class Move {
         if (doublePush) this.data |= (1 << 21);
         if (epCapture) this.data |= (1 << 22);
         if (castle) this.data |= (1 << 23);
+    }
+
+    public int getRawData() {
+        return this.data;
     }
 
     public int getStart() {
