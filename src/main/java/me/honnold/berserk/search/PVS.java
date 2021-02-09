@@ -1,5 +1,7 @@
 package me.honnold.berserk.search;
 
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import me.honnold.berserk.board.GameStage;
 import me.honnold.berserk.board.Piece;
 import me.honnold.berserk.board.Position;
@@ -9,9 +11,6 @@ import me.honnold.berserk.moves.MoveGenerator;
 import me.honnold.berserk.tt.Evaluation;
 import me.honnold.berserk.tt.EvaluationFlag;
 import me.honnold.berserk.tt.Transpositions;
-
-import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PVS implements Runnable {
     public static final int MAX_DEPTH = 100;
@@ -73,8 +72,26 @@ public class PVS implements Runnable {
                 }
             }
         }
+        //        for (int depth = 2; depth <= MAX_DEPTH && running.get(); depth++) {
+        //            score = mtdf(score, depth);
+        //        }
 
         running.set(false);
+    }
+
+    public int mtdf(int gamma, int depth) {
+        int upper = Constants.CHECKMATE_MAX;
+        int lower = -Constants.CHECKMATE_MAX;
+
+        while (lower < upper - 13) {
+            //            int beta = Math.max(gamma, lower + 1);
+            int beta = (lower + upper) / 2;
+            gamma = pvSearch(beta - 1, beta, depth, 0, true, this.root);
+            if (gamma < beta) upper = gamma;
+            else lower = gamma;
+        }
+
+        return gamma;
     }
 
     public int pvSearch(
@@ -98,23 +115,22 @@ public class PVS implements Runnable {
         if (evaluation != null && evaluation.getDepth() >= depth) {
             this.results.incTableHits();
 
-            int score = evaluation.getScore();
+            int score = evaluation.getScore(ply);
             if (evaluation.getFlag() == EvaluationFlag.EXACT) return score;
-            if (!isPv && evaluation.getFlag() == EvaluationFlag.LOWER && score > beta) return score;
-            if (!isPv && evaluation.getFlag() == EvaluationFlag.UPPER && score < alpha)
-                return score;
+            if (evaluation.getFlag() == EvaluationFlag.LOWER && score >= beta) return score;
+            if (evaluation.getFlag() == EvaluationFlag.UPPER && score <= alpha) return score;
         }
 
         results.incNodes();
 
-        int score = -Constants.CHECKMATE_MAX, bestScore = score, alphaOg = alpha;
+        int score = -Constants.CHECKMATE_MAX, bestScore = score - 1, alphaOg = alpha;
         Move bestMove = null;
 
         int staticEval = position.getValue();
         if (!isPv && !inCheck) {
             if (evaluation != null && evaluation.getDepth() >= depth) {
                 EvaluationFlag flag = evaluation.getFlag();
-                int evalScore = evaluation.getScore();
+                int evalScore = evaluation.getScore(ply);
                 if (flag == EvaluationFlag.EXACT
                         || flag == EvaluationFlag.UPPER && evalScore < staticEval
                         || flag == EvaluationFlag.LOWER && evalScore > staticEval) {
@@ -170,7 +186,6 @@ public class PVS implements Runnable {
                 && !inCheck
                 && Math.abs(alpha) < Constants.CHECKMATE_MIN
                 && staticEval + futilityMargins[depth] <= alpha) enableFutilityPruning = true;
-
 
         List<Move> moves = moveGenerator.getAllMoves(position);
         moveGenerator.sortMoves(moves, pvTable[0][ply], position, ply);
@@ -306,7 +321,7 @@ public class PVS implements Runnable {
         if (evaluation != null) {
             this.results.incTableHits();
 
-            int score = evaluation.getScore();
+            int score = evaluation.getScore(MAX_DEPTH);
             if (evaluation.getFlag() == EvaluationFlag.EXACT) return score;
             if (evaluation.getFlag() == EvaluationFlag.LOWER && score >= beta) return score;
             if (evaluation.getFlag() == EvaluationFlag.UPPER && score <= alpha) return score;
@@ -316,10 +331,10 @@ public class PVS implements Runnable {
         if (evaluation != null) {
             if (evaluation.getFlag() == EvaluationFlag.EXACT
                     || evaluation.getFlag() == EvaluationFlag.UPPER
-                    && evaluation.getScore() < staticEval
+                            && evaluation.getScore(MAX_DEPTH) < staticEval
                     || evaluation.getFlag() == EvaluationFlag.LOWER
-                    && evaluation.getScore() > staticEval) {
-                staticEval = evaluation.getScore();
+                            && evaluation.getScore(MAX_DEPTH) > staticEval) {
+                staticEval = evaluation.getScore(MAX_DEPTH);
             }
         }
 
@@ -335,8 +350,8 @@ public class PVS implements Runnable {
             if (m.isPromotion()) {
                 if (m.getPromotionPiece() < 8) continue;
             } else if (staticEval
-                    + 200
-                    + Piece.getPieceValue(position.getCapturedPieceIdx(m.getEnd()), stage)
+                            + 150
+                            + Piece.getPieceValue(position.getCapturedPieceIdx(m.getEnd()), stage)
                     < alpha) {
                 continue;
             }
@@ -365,8 +380,8 @@ public class PVS implements Runnable {
                 Math.abs(score) <= Constants.CHECKMATE_MIN
                         ? score
                         : score < -Constants.CHECKMATE_MIN
-                        ? -((Constants.CHECKMATE_MAX + score) / 2 + 1)
-                        : (Constants.CHECKMATE_MAX - score) / 2 + 1;
+                                ? -((Constants.CHECKMATE_MAX + score) / 2 + 1)
+                                : (Constants.CHECKMATE_MAX - score) / 2 + 1;
 
         String output =
                 "info depth "
@@ -378,10 +393,10 @@ public class PVS implements Runnable {
                         + results.getNodes()
                         + " nps "
                         + String.format(
-                        "%.0f",
-                        1_000_000_000.0
-                                * results.getNodes()
-                                / (System.nanoTime() - results.getStartTime()))
+                                "%.0f",
+                                1_000_000_000.0
+                                        * results.getNodes()
+                                        / (System.nanoTime() - results.getStartTime()))
                         + " pv "
                         + getPv();
         System.out.println(output);

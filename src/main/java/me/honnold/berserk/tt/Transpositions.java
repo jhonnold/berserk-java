@@ -7,10 +7,11 @@ import me.honnold.berserk.moves.Move;
 public class Transpositions {
     private static final Transpositions singleton = new Transpositions();
 
-    private final int power = 20;
+    private final int power = 23;
     private final int shifts = 64 - power;
     private final Evaluation[] evaluations;
     private final int bucketSize = 4;
+    public int collisions = 0;
 
     private Transpositions() {
         evaluations = new Evaluation[(int) ((1L << power) * bucketSize)];
@@ -21,6 +22,7 @@ public class Transpositions {
     }
 
     public void clearEvaluations() {
+        collisions = 0;
         Arrays.fill(evaluations, null);
     }
 
@@ -66,6 +68,9 @@ public class Transpositions {
                 replacedDepth = evalDepth;
             }
         }
+
+        if (evaluations[replaceIdx] != null && evaluations[replaceIdx].getHash() != p.zHash)
+            collisions++;
 
         evaluations[replaceIdx] = new Evaluation(p.zHash, depth, score, flag, move);
     }

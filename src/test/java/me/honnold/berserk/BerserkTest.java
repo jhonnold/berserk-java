@@ -1,22 +1,19 @@
 package me.honnold.berserk;
 
-import me.honnold.berserk.board.Position;
-import me.honnold.berserk.moves.Move;
-import me.honnold.berserk.util.EPD;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.CsvFileSource;
-import org.junit.jupiter.params.provider.MethodSource;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Stream;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import me.honnold.berserk.board.Position;
+import me.honnold.berserk.moves.Move;
+import me.honnold.berserk.util.EPD;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvFileSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class BerserkTest {
     private Berserk berserk;
@@ -73,7 +70,11 @@ public class BerserkTest {
     void eigenmannRapidEngineTest(EPD.EPDAnalysis epdAnalysis) throws InterruptedException {
         System.out.println("Running test for " + epdAnalysis.id);
         System.out.println(epdAnalysis.position);
-        System.out.println("Expected " + (epdAnalysis.isBest ? "best" : "avoid") + " move: " + epdAnalysis.move);
+        System.out.println(
+                "Expected "
+                        + (epdAnalysis.isBest ? "best" : "avoid")
+                        + " move: "
+                        + epdAnalysis.move);
 
         Thread wait = berserk.searchForTime(epdAnalysis.position, 15000);
         wait.join();
@@ -92,7 +93,11 @@ public class BerserkTest {
     void kaufmanTest(EPD.EPDAnalysis epdAnalysis) throws InterruptedException {
         System.out.println("Running test for " + epdAnalysis.id);
         System.out.println(epdAnalysis.position);
-        System.out.println("Expected " + (epdAnalysis.isBest ? "best" : "avoid") + " move: " + epdAnalysis.move);
+        System.out.println(
+                "Expected "
+                        + (epdAnalysis.isBest ? "best" : "avoid")
+                        + " move: "
+                        + epdAnalysis.move);
 
         Thread wait = berserk.searchForTime(epdAnalysis.position, 15000);
         wait.join();
@@ -111,7 +116,11 @@ public class BerserkTest {
     void sbdTest(EPD.EPDAnalysis epdAnalysis) throws InterruptedException {
         System.out.println("Running test for " + epdAnalysis.id);
         System.out.println(epdAnalysis.position);
-        System.out.println("Expected " + (epdAnalysis.isBest ? "best" : "avoid") + " move: " + epdAnalysis.move);
+        System.out.println(
+                "Expected "
+                        + (epdAnalysis.isBest ? "best" : "avoid")
+                        + " move: "
+                        + epdAnalysis.move);
 
         Thread wait = berserk.searchForTime(epdAnalysis.position, 2500);
         wait.join();
@@ -130,9 +139,13 @@ public class BerserkTest {
     void wacTest(EPD.EPDAnalysis epdAnalysis) throws InterruptedException {
         System.out.println("Running test for " + epdAnalysis.id);
         System.out.println(epdAnalysis.position);
-        System.out.println("Expected " + (epdAnalysis.isBest ? "best" : "avoid") + " move: " + epdAnalysis.move);
+        System.out.println(
+                "Expected "
+                        + (epdAnalysis.isBest ? "best" : "avoid")
+                        + " move: "
+                        + epdAnalysis.move);
 
-        Thread wait = berserk.searchForTime(epdAnalysis.position, 2500);
+        Thread wait = berserk.searchForTime(epdAnalysis.position, 5000);
         wait.join();
 
         Move testResult = berserk.getSearchResults().getBestMove();
@@ -149,7 +162,11 @@ public class BerserkTest {
     void sts7Test(EPD.EPDAnalysis epdAnalysis) throws InterruptedException {
         System.out.println("Running test for " + epdAnalysis.id);
         System.out.println(epdAnalysis.position);
-        System.out.println("Expected " + (epdAnalysis.isBest ? "best" : "avoid") + " move: " + epdAnalysis.move);
+        System.out.println(
+                "Expected "
+                        + (epdAnalysis.isBest ? "best" : "avoid")
+                        + " move: "
+                        + epdAnalysis.move);
 
         Thread wait = berserk.searchForTime(epdAnalysis.position, 10000);
         wait.join();
@@ -157,7 +174,7 @@ public class BerserkTest {
         Move testResult = berserk.getSearchResults().getBestMove();
 
         if (epdAnalysis.isBest) {
-             assertEquals(epdAnalysis.move, testResult);
+            assertEquals(epdAnalysis.move, testResult);
         } else {
             assertNotEquals(epdAnalysis.move, testResult);
         }

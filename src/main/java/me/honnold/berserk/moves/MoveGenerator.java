@@ -1,14 +1,13 @@
 package me.honnold.berserk.moves;
 
+import static me.honnold.berserk.util.BBUtils.*;
+
+import java.util.ArrayList;
+import java.util.List;
 import me.honnold.berserk.board.Piece;
 import me.honnold.berserk.board.Position;
 import me.honnold.berserk.tt.Evaluation;
 import me.honnold.berserk.tt.Transpositions;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import static me.honnold.berserk.util.BBUtils.*;
 
 public class MoveGenerator {
     private static final MoveGenerator singleton = new MoveGenerator();
@@ -18,8 +17,7 @@ public class MoveGenerator {
     private int[][] historicalMoveScores = new int[12][64];
     private Move[][] killers = new Move[100][2];
 
-    private MoveGenerator() {
-    }
+    private MoveGenerator() {}
 
     public static MoveGenerator getInstance() {
         return singleton;
@@ -599,7 +597,7 @@ public class MoveGenerator {
 
                         return this.historicalMoveScores[moveTwo.getPieceIdx()][moveTwo.getEnd()]
                                 - this.historicalMoveScores[moveOne.getPieceIdx()][
-                                moveOne.getEnd()];
+                                        moveOne.getEnd()];
                     }
                 });
     }

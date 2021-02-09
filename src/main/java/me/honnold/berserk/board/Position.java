@@ -1,14 +1,13 @@
 package me.honnold.berserk.board;
 
+import static me.honnold.berserk.util.BBUtils.*;
+
+import java.util.Arrays;
 import me.honnold.berserk.eval.PositionEvaluations;
 import me.honnold.berserk.moves.AttackMasks;
 import me.honnold.berserk.moves.Move;
 import me.honnold.berserk.tt.ZobristHash;
 import org.apache.commons.lang3.ArrayUtils;
-
-import java.util.Arrays;
-
-import static me.honnold.berserk.util.BBUtils.*;
 
 public class Position {
     private final AttackMasks attackMasks = AttackMasks.getInstance();
@@ -89,7 +88,8 @@ public class Position {
         }
 
         if (m.isEPCapture()) {
-            this.pieceBitboards[1 - sideToMove] = setBit(this.pieceBitboards[1 - sideToMove], end - pawnDirections[sideToMove]);
+            this.pieceBitboards[1 - sideToMove] =
+                    setBit(this.pieceBitboards[1 - sideToMove], end - pawnDirections[sideToMove]);
         }
 
         if (m.isCastle()) {
@@ -136,8 +136,7 @@ public class Position {
     public void nullMove() {
         this.savePositionHistory();
 
-        if (this.epSquare != -1)
-            this.zHash ^= hashUtil.getEpKey(this.epSquare);
+        if (this.epSquare != -1) this.zHash ^= hashUtil.getEpKey(this.epSquare);
         this.epSquare = -1;
 
         this.zHash ^= hashUtil.getSideKey();
@@ -252,6 +251,7 @@ public class Position {
         occupancyBitboards[2] = occupancyBitboards[0] | occupancyBitboards[1];
 
         this.sideToMove ^= 1;
+        this.zHash ^= hashUtil.getSideKey();
 
         return !isSquareAttacked(
                 getLSBIndex(this.pieceBitboards[11 - this.sideToMove]), this.sideToMove);
@@ -270,12 +270,12 @@ public class Position {
             return true;
         if ((attackMasks.getKnightAttacks(square) & pieceBitboards[2 + bySide]) != 0) return true;
         if ((attackMasks.getBishopAttacks(square, occupancyBitboards[2])
-                & pieceBitboards[4 + bySide])
+                        & pieceBitboards[4 + bySide])
                 != 0) return true;
         if ((attackMasks.getRookAttacks(square, occupancyBitboards[2]) & pieceBitboards[6 + bySide])
                 != 0) return true;
         if ((attackMasks.getQueenAttacks(square, occupancyBitboards[2])
-                & pieceBitboards[8 + bySide])
+                        & pieceBitboards[8 + bySide])
                 != 0) return true;
 
         return (attackMasks.getKingAttacks(square) & pieceBitboards[10 + bySide]) != 0;
@@ -348,7 +348,7 @@ public class Position {
         }
 
         if (pieceValues > 6000) this.stage = GameStage.OPENING;
-        else if (pieceValues < 1500) this.stage = GameStage.ENDGAME;
+        else if (pieceValues < 2300) this.stage = GameStage.ENDGAME;
         else this.stage = GameStage.MIDDLEGAME;
 
         return this.stage;

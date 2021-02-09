@@ -1,14 +1,13 @@
 package me.honnold.berserk.tt;
 
-import static me.honnold.berserk.util.BBUtils.getLSBIndex;
-import static me.honnold.berserk.util.BBUtils.popBit;
-
 import me.honnold.berserk.board.Position;
 import me.honnold.berserk.util.Random;
 
+import static me.honnold.berserk.util.BBUtils.getLSBIndex;
+import static me.honnold.berserk.util.BBUtils.popBit;
+
 public class ZobristHash {
     private static final ZobristHash singleton = new ZobristHash();
-    private final Random random = Random.getInstance();
     private final long[][] pieceKeys;
     private final long[] epKeys;
     private final long[] castleKeys;
@@ -16,6 +15,7 @@ public class ZobristHash {
 
     private ZobristHash() {
         pieceKeys = new long[12][64];
+        Random random = Random.getInstance();
         for (int i = 0; i < 12; i++)
             for (int j = 0; j < 64; j++) pieceKeys[i][j] = random.getRandomLong();
 

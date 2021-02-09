@@ -1,16 +1,15 @@
 package me.honnold.berserk.util;
 
-import me.honnold.berserk.board.Position;
-import me.honnold.berserk.moves.Move;
-import me.honnold.berserk.moves.MoveGenerator;
-import org.apache.commons.lang3.ArrayUtils;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import me.honnold.berserk.board.Position;
+import me.honnold.berserk.moves.Move;
+import me.honnold.berserk.moves.MoveGenerator;
+import org.apache.commons.lang3.ArrayUtils;
 
 public class EPD {
     private static MoveGenerator moveGenerator = MoveGenerator.getInstance();
@@ -138,7 +137,7 @@ public class EPD {
         public boolean isBest;
 
         public EPDAnalysis(String id, Position position, Move move, boolean isBest) {
-            this.id = id;
+            this.id = id.replace("id ", "");
             this.position = position;
             this.move = move;
             this.isBest = isBest;
@@ -146,9 +145,7 @@ public class EPD {
 
         @Override
         public String toString() {
-            return "EPDAnalysis{" +
-                    "id='" + id + '\'' +
-                    '}';
+            return "EPDAnalysis{" + "id='" + id + '\'' + '}';
         }
     }
 }

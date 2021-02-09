@@ -1,11 +1,12 @@
 package me.honnold.berserk.tt;
 
+import me.honnold.berserk.eval.Constants;
 import me.honnold.berserk.moves.Move;
 
 public class Evaluation {
     private final long hash;
     private final int depth;
-    private final int score;
+    private int score;
     private final EvaluationFlag flag;
     private final int move;
 
@@ -25,7 +26,13 @@ public class Evaluation {
         return depth;
     }
 
-    public int getScore() {
+    public int getScore(int ply) {
+        if (score > Constants.CHECKMATE_MIN) {
+            score -= ply;
+        } else if (score < -Constants.CHECKMATE_MIN) {
+            score += ply;
+        }
+
         return score;
     }
 

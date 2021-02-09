@@ -54,7 +54,7 @@ public class Repetitions {
 
     public boolean isRepetition() {
         for (int i = 0; i < TABLE_SIZE; i++) {
-            if (counts[i] > 2) return true;
+            if (counts[i] > 1) return true;
         }
 
         return false;
