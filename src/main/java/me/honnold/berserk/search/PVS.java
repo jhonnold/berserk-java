@@ -202,13 +202,12 @@ public class PVS implements Runnable {
 
             hasLegalMove = true;
             searches++;
-            repetitions.add(position.zHash);
 
             // TODO: Add material draw and 50 move rep here
-            if (repetitions.isRepetition()) {
+            if (repetitions.isRepetition(position.zHash)) {
                 score = 0;
             } else {
-
+                repetitions.add(position.zHash);
                 if (enableFutilityPruning
                         && !move.isCapture()
                         && !move.isEPCapture()
@@ -256,10 +255,10 @@ public class PVS implements Runnable {
                 if (score > alpha) {
                     score = -pvSearch(-beta, -alpha, depth - 1, ply + 1, true, position);
                 }
+                repetitions.pop();
             }
 
             position.undoMove(move);
-            repetitions.pop();
 
             if (!running.get()) return 0;
 

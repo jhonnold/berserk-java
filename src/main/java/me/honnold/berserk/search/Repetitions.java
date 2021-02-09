@@ -1,5 +1,7 @@
 package me.honnold.berserk.search;
 
+import me.honnold.berserk.board.Position;
+
 import java.util.Arrays;
 import java.util.Stack;
 
@@ -52,11 +54,9 @@ public class Repetitions {
         if (counts[idx] <= 0) hashes[idx] = 0;
     }
 
-    public boolean isRepetition() {
-        for (int i = 0; i < TABLE_SIZE; i++) {
-            if (counts[i] > 1) return true;
-        }
+    public boolean isRepetition(long zHash) {
+        int idx = this.getIdx(zHash);
 
-        return false;
+        return counts[idx] > 0;
     }
 }
