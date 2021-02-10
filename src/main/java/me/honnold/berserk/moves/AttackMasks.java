@@ -43,7 +43,7 @@ public class AttackMasks {
     private final long NOT_AB_FILE = -217020518514230020L;
     private final long NOT_GH_FILE = 4557430888798830399L;
 
-    public final long[] columnMasks = {
+    private final long[] columnMasks = {
         72340172838076673L,
         144680345676153346L,
         289360691352306692L,
@@ -82,6 +82,12 @@ public class AttackMasks {
 
     public static AttackMasks getInstance() {
         return singleton;
+    }
+
+    public long getColumnMask(int column) {
+        if (column < 0 || column > 7) return 0L;
+
+        return columnMasks[column];
     }
 
     // region accessors

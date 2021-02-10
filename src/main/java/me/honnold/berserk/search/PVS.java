@@ -282,12 +282,7 @@ public class PVS implements Runnable {
                             ply + 1,
                             pvLength[ply + 1] - (ply + 1));
                 pvLength[ply] = pvLength[ply + 1];
-
-                if (ply == 0 && running.get()) {
-                    this.results.setBestMove(bestMove);
-                    this.results.setScore(score);
-                    printPV(depth, score);
-                }
+                if (ply == 0) printPV(depth, bestScore);
 
                 alpha = Math.max(alpha, score);
                 if (alpha >= beta) {
@@ -307,6 +302,12 @@ public class PVS implements Runnable {
         if (!hasLegalMove) {
             if (inCheck) bestScore = -Constants.CHECKMATE_MAX + ply;
             else bestScore = 0;
+        }
+
+        if (ply == 0 && running.get()) {
+            this.results.setBestMove(bestMove);
+            this.results.setScore(bestScore);
+            printPV(depth, bestScore);
         }
 
         int flag = Transpositions.EXACT;
