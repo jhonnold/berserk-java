@@ -8,13 +8,7 @@ public class Move {
     public static final int PIECE_MASK = 0xF000;
     public static final int PROMOTION_MASK = 0xF0000;
 
-    private int data;
-
-    public Move(int data) {
-        this.data = data;
-    }
-
-    public Move(
+    public static int createMove(
             int start,
             int end,
             int pieceIdx,
@@ -23,75 +17,68 @@ public class Move {
             boolean doublePush,
             boolean epCapture,
             boolean castle) {
-        this.data = start;
-        this.data |= (end << 6);
-        this.data |= (pieceIdx << 12);
-        this.data |= (promotionPiece << 16);
+        int data = start;
+        data |= (end << 6);
+        data |= (pieceIdx << 12);
+        data |= (promotionPiece << 16);
 
-        if (capture) this.data |= (1 << 20);
-        if (doublePush) this.data |= (1 << 21);
-        if (epCapture) this.data |= (1 << 22);
-        if (castle) this.data |= (1 << 23);
+        if (capture) data |= (1 << 20);
+        if (doublePush) data |= (1 << 21);
+        if (epCapture) data |= (1 << 22);
+        if (castle) data |= (1 << 23);
+
+        return data;
     }
 
-    public int getRawData() {
-        return this.data;
+    public static boolean equals(int m1, int m2) {
+        return getStart(m1) == getStart(m2)
+                && getEnd(m1) == getEnd(m2)
+                && getPromotionPiece(m1) == getPromotionPiece(m2);
     }
 
-    public int getStart() {
-        return this.data & START_MASK;
+    public static int getPieceIdx(int data) {
+        return (data & PIECE_MASK) >> 12;
     }
 
-    public int getEnd() {
-        return (this.data & END_MASK) >> 6;
+    public static boolean isCapture(int data) {
+        return (data & 0x100000) != 0;
     }
 
-    public int getPieceIdx() {
-        return (this.data & PIECE_MASK) >> 12;
+    public static boolean isDoublePush(int data) {
+        return (data & 0x200000) != 0;
     }
 
-    public int getPromotionPiece() {
-        return (this.data & PROMOTION_MASK) >> 16;
+    public static boolean isEPCapture(int data) {
+        return (data & 0x400000) != 0;
     }
 
-    public boolean isPromotion() {
-        return getPromotionPiece() != 0;
+    public static boolean isCastle(int data) {
+        return (data & 0x800000) != 0;
     }
 
-    public boolean isCapture() {
-        return (this.data & 0x100000) != 0;
-    }
-
-    public boolean isDoublePush() {
-        return (this.data & 0x200000) != 0;
-    }
-
-    public boolean isEPCapture() {
-        return (this.data & 0x400000) != 0;
-    }
-
-    public boolean isCastle() {
-        return (this.data & 0x800000) != 0;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (o == this) return true;
-        if (!(o instanceof Move)) return false;
-
-        Move other = (Move) o;
-
-        return other.data == this.data;
-    }
-
-    @Override
-    public String toString() {
+    public static String toString(int data) {
         StringBuilder sb = new StringBuilder();
-        sb.append(BBUtils.squares[getStart()]).append(BBUtils.squares[getEnd()]);
+        sb.append(BBUtils.squares[getStart(data)]).append(BBUtils.squares[getEnd(data)]);
 
-        if (isPromotion())
-            sb.append(Character.toLowerCase(BBUtils.pieceSymbols[getPromotionPiece()]));
+        if (isPromotion(data))
+            sb.append(Character.toLowerCase(BBUtils.pieceSymbols[getPromotionPiece(data)]));
 
         return sb.toString();
+    }
+
+    public static int getStart(int data) {
+        return data & START_MASK;
+    }
+
+    public static int getEnd(int data) {
+        return (data & END_MASK) >> 6;
+    }
+
+    public static boolean isPromotion(int data) {
+        return getPromotionPiece(data) != 0;
+    }
+
+    public static int getPromotionPiece(int data) {
+        return (data & PROMOTION_MASK) >> 16;
     }
 }

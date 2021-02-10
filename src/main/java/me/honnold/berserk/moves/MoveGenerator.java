@@ -2,20 +2,21 @@ package me.honnold.berserk.moves;
 
 import static me.honnold.berserk.util.BBUtils.*;
 
-import java.util.ArrayList;
-import java.util.List;
 import me.honnold.berserk.board.Piece;
 import me.honnold.berserk.board.Position;
-import me.honnold.berserk.tt.Evaluation;
+import me.honnold.berserk.eval.Constants;
 import me.honnold.berserk.tt.Transpositions;
 
 public class MoveGenerator {
     private static final MoveGenerator singleton = new MoveGenerator();
 
+    private final Moves moves = Moves.getInstance();
     private final AttackMasks masks = AttackMasks.getInstance();
     private final Transpositions transpositions = Transpositions.getInstance();
+    private final long[] doubleMoveRanks = {masks.rowMasks[6], masks.rowMasks[1]};
+    private final long[] promotionRanks = {doubleMoveRanks[1], doubleMoveRanks[0]};
     private int[][] historicalMoveScores = new int[12][64];
-    private Move[][] killers = new Move[100][2];
+    private int[][] killers = new int[100][2];
 
     private MoveGenerator() {}
 
@@ -28,71 +29,67 @@ public class MoveGenerator {
     }
 
     public void clearKillers() {
-        this.killers = new Move[100][2];
+        this.killers = new int[100][2];
     }
 
-    public void setHistoricalMoveScore(Move move, int score) {
-        this.historicalMoveScores[move.getPieceIdx()][move.getEnd()] = score;
+    public void setHistoricalMoveScore(int move, int score) {
+        this.historicalMoveScores[Move.getPieceIdx(move)][Move.getEnd(move)] = score;
     }
 
-    public void addKiller(Move move, int ply) {
-        if (!move.equals(killers[ply][0])) killers[ply][1] = killers[ply][0];
+    public void addKiller(int move, int ply) {
+        if (!Move.equals(move, killers[ply][0])) killers[ply][1] = killers[ply][0];
 
         killers[ply][0] = move;
     }
 
-    public List<Move> getAllMoves(Position position) {
-        final List<Move> moves = new ArrayList<>();
+    public void addAllMoves(Position position, int ply) {
+        moves.setPly(ply);
 
-        this.addAllPawnMoves(position, moves);
-        this.addAllKnightMoves(position, moves);
-        this.addAllBishopMoves(position, moves);
-        this.addAllRookMoves(position, moves);
-        this.addAllQueenMoves(position, moves);
-        this.addAllKingMoves(position, moves);
-
-        return moves;
+        this.addAllPawnMoves(position);
+        this.addAllKnightMoves(position);
+        this.addAllBishopMoves(position);
+        this.addAllRookMoves(position);
+        this.addAllQueenMoves(position);
+        this.addAllKingMoves(position);
     }
 
-    private void addAllPawnMoves(Position position, List<Move> moves) {
-        this.addAllPawnQuiets(position, moves);
-        this.addAllPawnCaptures(position, moves);
-        this.addAllPawnPromotions(position, moves);
+    private void addAllPawnMoves(Position position) {
+        this.addAllPawnQuiets(position);
+        this.addAllPawnCaptures(position);
+        this.addAllPawnPromotions(position);
     }
 
-    private void addAllKnightMoves(Position position, List<Move> moves) {
-        this.addAllKnightCaptures(position, moves);
-        this.addAllKnightQuiets(position, moves);
+    private void addAllKnightMoves(Position position) {
+        this.addAllKnightCaptures(position);
+        this.addAllKnightQuiets(position);
     }
 
-    private void addAllBishopMoves(Position position, List<Move> moves) {
-        this.addAllBishopCaptures(position, moves);
-        this.addAllBishopQuiets(position, moves);
+    private void addAllBishopMoves(Position position) {
+        this.addAllBishopCaptures(position);
+        this.addAllBishopQuiets(position);
     }
 
-    private void addAllRookMoves(Position position, List<Move> moves) {
-        this.addAllRookCaptures(position, moves);
-        this.addAllRookQuiets(position, moves);
+    private void addAllRookMoves(Position position) {
+        this.addAllRookCaptures(position);
+        this.addAllRookQuiets(position);
     }
 
-    private void addAllQueenMoves(Position position, List<Move> moves) {
-        this.addAllQueenCaptures(position, moves);
-        this.addAllQueenQuiets(position, moves);
+    private void addAllQueenMoves(Position position) {
+        this.addAllQueenCaptures(position);
+        this.addAllQueenQuiets(position);
     }
 
-    private void addAllKingMoves(Position position, List<Move> moves) {
-        this.addAllKingCastles(position, moves);
-        this.addAllKingCaptures(position, moves);
-        this.addAllKingQuiets(position, moves);
+    private void addAllKingMoves(Position position) {
+        this.addAllKingCastles(position);
+        this.addAllKingCaptures(position);
+        this.addAllKingQuiets(position);
     }
 
-    private void addAllPawnQuiets(Position position, List<Move> moves) {
+    private void addAllPawnQuiets(Position position) {
         int pawnIdx = position.sideToMove;
         long pieceBoard = position.pieceBitboards[pawnIdx];
 
         int pawnDirection = position.sideToMove == 0 ? -8 : 8;
-        long[] doubleMoveRanks = {masks.rowMasks[6], masks.rowMasks[1]};
-
         long normalPawns = pieceBoard & masks.middleFourRanks;
         while (normalPawns != 0) {
             int start = getLSBIndex(normalPawns);
@@ -100,7 +97,7 @@ public class MoveGenerator {
             int end = start + pawnDirection;
 
             if (!getBit(position.occupancyBitboards[2], end))
-                moves.add(new Move(start, end, pawnIdx, 0, false, false, false, false));
+                moves.add(Move.createMove(start, end, pawnIdx, 0, false, false, false, false));
         }
 
         long doubleJumpPawns = pieceBoard & doubleMoveRanks[position.sideToMove];
@@ -110,17 +107,16 @@ public class MoveGenerator {
             int end = start + pawnDirection;
 
             if (!getBit(position.occupancyBitboards[2], end)) {
-                moves.add(new Move(start, end, pawnIdx, 0, false, false, false, false));
+                moves.add(Move.createMove(start, end, pawnIdx, 0, false, false, false, false));
 
                 end += pawnDirection;
                 if (!getBit(position.occupancyBitboards[2], end))
-                    moves.add(new Move(start, end, pawnIdx, 0, false, true, false, false));
+                    moves.add(Move.createMove(start, end, pawnIdx, 0, false, true, false, false));
             }
         }
     }
 
-    private void addAllPawnCaptures(Position position, List<Move> moves) {
-        final long[] promotionRanks = {masks.rowMasks[1], masks.rowMasks[6]};
+    private void addAllPawnCaptures(Position position) {
         int pawnIdx = position.sideToMove;
         long pieceBoard = position.pieceBitboards[pawnIdx];
         long nonPromotingPawns = pieceBoard & ~promotionRanks[position.sideToMove];
@@ -137,7 +133,7 @@ public class MoveGenerator {
                 int end = getLSBIndex(attacks);
                 attacks = popLSB(attacks);
 
-                moves.add(new Move(start, end, pawnIdx, 0, true, false, false, false));
+                moves.add(Move.createMove(start, end, pawnIdx, 0, true, false, false, false));
             }
 
             if (position.epSquare != -1) {
@@ -146,7 +142,7 @@ public class MoveGenerator {
                                 & (1L << position.epSquare);
                 if (attacks != 0) {
                     moves.add(
-                            new Move(
+                            Move.createMove(
                                     start,
                                     position.epSquare,
                                     pawnIdx,
@@ -160,8 +156,7 @@ public class MoveGenerator {
         }
     }
 
-    private void addAllPawnPromotions(Position position, List<Move> moves) {
-        final long[] promotionRanks = {masks.rowMasks[1], masks.rowMasks[6]};
+    private void addAllPawnPromotions(Position position) {
         int pawnIdx = position.sideToMove;
         long pieceBoard = position.pieceBitboards[pawnIdx];
         long promotingPawns = pieceBoard & promotionRanks[position.sideToMove];
@@ -174,7 +169,7 @@ public class MoveGenerator {
 
             if (!getBit(position.occupancyBitboards[2], end)) {
                 moves.add(
-                        new Move(
+                        Move.createMove(
                                 start,
                                 end,
                                 pawnIdx,
@@ -184,7 +179,7 @@ public class MoveGenerator {
                                 false,
                                 false));
                 moves.add(
-                        new Move(
+                        Move.createMove(
                                 start,
                                 end,
                                 pawnIdx,
@@ -194,7 +189,7 @@ public class MoveGenerator {
                                 false,
                                 false));
                 moves.add(
-                        new Move(
+                        Move.createMove(
                                 start,
                                 end,
                                 pawnIdx,
@@ -204,7 +199,7 @@ public class MoveGenerator {
                                 false,
                                 false));
                 moves.add(
-                        new Move(
+                        Move.createMove(
                                 start,
                                 end,
                                 pawnIdx,
@@ -223,7 +218,7 @@ public class MoveGenerator {
                 attacks = popLSB(attacks);
 
                 moves.add(
-                        new Move(
+                        Move.createMove(
                                 start,
                                 end,
                                 pawnIdx,
@@ -233,7 +228,7 @@ public class MoveGenerator {
                                 false,
                                 false));
                 moves.add(
-                        new Move(
+                        Move.createMove(
                                 start,
                                 end,
                                 pawnIdx,
@@ -243,7 +238,7 @@ public class MoveGenerator {
                                 false,
                                 false));
                 moves.add(
-                        new Move(
+                        Move.createMove(
                                 start,
                                 end,
                                 pawnIdx,
@@ -253,7 +248,7 @@ public class MoveGenerator {
                                 false,
                                 false));
                 moves.add(
-                        new Move(
+                        Move.createMove(
                                 start,
                                 end,
                                 pawnIdx,
@@ -266,7 +261,7 @@ public class MoveGenerator {
         }
     }
 
-    private void addAllKnightCaptures(Position position, List<Move> moves) {
+    private void addAllKnightCaptures(Position position) {
         int knightIdx = 2 + position.sideToMove;
         long pieceBoard = position.pieceBitboards[knightIdx];
 
@@ -283,12 +278,12 @@ public class MoveGenerator {
                 attacks = popLSB(attacks);
 
                 if (getBit(position.occupancyBitboards[1 - position.sideToMove], end))
-                    moves.add(new Move(start, end, knightIdx, 0, true, false, false, false));
+                    moves.add(Move.createMove(start, end, knightIdx, 0, true, false, false, false));
             }
         }
     }
 
-    private void addAllKnightQuiets(Position position, List<Move> moves) {
+    private void addAllKnightQuiets(Position position) {
         int knightIdx = 2 + position.sideToMove;
         long pieceBoard = position.pieceBitboards[knightIdx];
 
@@ -305,12 +300,13 @@ public class MoveGenerator {
                 attacks = popLSB(attacks);
 
                 if (!getBit(position.occupancyBitboards[1 - position.sideToMove], end))
-                    moves.add(new Move(start, end, knightIdx, 0, false, false, false, false));
+                    moves.add(
+                            Move.createMove(start, end, knightIdx, 0, false, false, false, false));
             }
         }
     }
 
-    private void addAllBishopCaptures(Position position, List<Move> moves) {
+    private void addAllBishopCaptures(Position position) {
         int bishopIdx = 4 + position.sideToMove;
         long pieceBoard = position.pieceBitboards[bishopIdx];
 
@@ -327,12 +323,12 @@ public class MoveGenerator {
                 attacks = popLSB(attacks);
 
                 if (getBit(position.occupancyBitboards[1 - position.sideToMove], end))
-                    moves.add(new Move(start, end, bishopIdx, 0, true, false, false, false));
+                    moves.add(Move.createMove(start, end, bishopIdx, 0, true, false, false, false));
             }
         }
     }
 
-    private void addAllBishopQuiets(Position position, List<Move> moves) {
+    private void addAllBishopQuiets(Position position) {
         int bishopIdx = 4 + position.sideToMove;
         long pieceBoard = position.pieceBitboards[bishopIdx];
 
@@ -349,12 +345,13 @@ public class MoveGenerator {
                 attacks = popLSB(attacks);
 
                 if (!getBit(position.occupancyBitboards[1 - position.sideToMove], end))
-                    moves.add(new Move(start, end, bishopIdx, 0, false, false, false, false));
+                    moves.add(
+                            Move.createMove(start, end, bishopIdx, 0, false, false, false, false));
             }
         }
     }
 
-    private void addAllRookCaptures(Position position, List<Move> moves) {
+    private void addAllRookCaptures(Position position) {
         int rookIdx = 6 + position.sideToMove;
         long pieceBoard = position.pieceBitboards[rookIdx];
 
@@ -371,12 +368,12 @@ public class MoveGenerator {
                 attacks = popLSB(attacks);
 
                 if (getBit(position.occupancyBitboards[1 - position.sideToMove], end))
-                    moves.add(new Move(start, end, rookIdx, 0, true, false, false, false));
+                    moves.add(Move.createMove(start, end, rookIdx, 0, true, false, false, false));
             }
         }
     }
 
-    private void addAllRookQuiets(Position position, List<Move> moves) {
+    private void addAllRookQuiets(Position position) {
         int rookIdx = 6 + position.sideToMove;
         long pieceBoard = position.pieceBitboards[rookIdx];
 
@@ -393,12 +390,12 @@ public class MoveGenerator {
                 attacks = popLSB(attacks);
 
                 if (!getBit(position.occupancyBitboards[1 - position.sideToMove], end))
-                    moves.add(new Move(start, end, rookIdx, 0, false, false, false, false));
+                    moves.add(Move.createMove(start, end, rookIdx, 0, false, false, false, false));
             }
         }
     }
 
-    private void addAllQueenCaptures(Position position, List<Move> moves) {
+    private void addAllQueenCaptures(Position position) {
         int queenIdx = 8 + position.sideToMove;
         long pieceBoard = position.pieceBitboards[queenIdx];
 
@@ -415,12 +412,12 @@ public class MoveGenerator {
                 attacks = popLSB(attacks);
 
                 if (getBit(position.occupancyBitboards[1 - position.sideToMove], end))
-                    moves.add(new Move(start, end, queenIdx, 0, true, false, false, false));
+                    moves.add(Move.createMove(start, end, queenIdx, 0, true, false, false, false));
             }
         }
     }
 
-    private void addAllQueenQuiets(Position position, List<Move> moves) {
+    private void addAllQueenQuiets(Position position) {
         int queenIdx = 8 + position.sideToMove;
         long pieceBoard = position.pieceBitboards[queenIdx];
 
@@ -437,12 +434,12 @@ public class MoveGenerator {
                 attacks = popLSB(attacks);
 
                 if (!getBit(position.occupancyBitboards[1 - position.sideToMove], end))
-                    moves.add(new Move(start, end, queenIdx, 0, false, false, false, false));
+                    moves.add(Move.createMove(start, end, queenIdx, 0, false, false, false, false));
             }
         }
     }
 
-    private void addAllKingCastles(Position position, List<Move> moves) {
+    private void addAllKingCastles(Position position) {
         int kingIdx = 10 + position.sideToMove;
 
         if (position.sideToMove == 0 && (position.castling & 0x8) == 8) {
@@ -451,7 +448,7 @@ public class MoveGenerator {
                 if (!position.isSquareAttacked(60, 1)
                         && !position.isSquareAttacked(61, 1)
                         && !position.isSquareAttacked(62, 1)) {
-                    moves.add(new Move(60, 62, kingIdx, 0, false, false, false, true));
+                    moves.add(Move.createMove(60, 62, kingIdx, 0, false, false, false, true));
                 }
             }
         }
@@ -463,7 +460,7 @@ public class MoveGenerator {
                 if (!position.isSquareAttacked(60, 1)
                         && !position.isSquareAttacked(59, 1)
                         && !position.isSquareAttacked(58, 1)) {
-                    moves.add(new Move(60, 58, kingIdx, 0, false, false, false, true));
+                    moves.add(Move.createMove(60, 58, kingIdx, 0, false, false, false, true));
                 }
             }
         }
@@ -474,7 +471,7 @@ public class MoveGenerator {
                 if (!position.isSquareAttacked(4, 0)
                         && !position.isSquareAttacked(5, 0)
                         && !position.isSquareAttacked(6, 0)) {
-                    moves.add(new Move(4, 6, kingIdx, 0, false, false, false, true));
+                    moves.add(Move.createMove(4, 6, kingIdx, 0, false, false, false, true));
                 }
             }
         }
@@ -486,13 +483,13 @@ public class MoveGenerator {
                 if (!position.isSquareAttacked(4, 0)
                         && !position.isSquareAttacked(3, 0)
                         && !position.isSquareAttacked(2, 0)) {
-                    moves.add(new Move(4, 2, kingIdx, 0, false, false, false, true));
+                    moves.add(Move.createMove(4, 2, kingIdx, 0, false, false, false, true));
                 }
             }
         }
     }
 
-    private void addAllKingCaptures(Position position, List<Move> moves) {
+    private void addAllKingCaptures(Position position) {
         int kingIdx = 10 + position.sideToMove;
         long pieceBoard = position.pieceBitboards[kingIdx];
 
@@ -508,12 +505,12 @@ public class MoveGenerator {
                 attacks = popLSB(attacks);
 
                 if (getBit(position.occupancyBitboards[1 - position.sideToMove], end))
-                    moves.add(new Move(start, end, kingIdx, 0, true, false, false, false));
+                    moves.add(Move.createMove(start, end, kingIdx, 0, true, false, false, false));
             }
         }
     }
 
-    private void addAllKingQuiets(Position position, List<Move> moves) {
+    private void addAllKingQuiets(Position position) {
         int kingIdx = 10 + position.sideToMove;
         long pieceBoard = position.pieceBitboards[kingIdx];
 
@@ -529,80 +526,68 @@ public class MoveGenerator {
                 attacks = popLSB(attacks);
 
                 if (!getBit(position.occupancyBitboards[1 - position.sideToMove], end))
-                    moves.add(new Move(start, end, kingIdx, 0, false, false, false, false));
+                    moves.add(Move.createMove(start, end, kingIdx, 0, false, false, false, false));
             }
         }
     }
 
-    public List<Move> getAllCapturesAndPromotions(Position position) {
-        final List<Move> moves = new ArrayList<>();
+    public void addAllCapturesAndPromotions(Position position, int ply) {
+        moves.setPly(ply);
 
-        this.addAllPawnPromotions(position, moves);
-        this.addAllPawnPromotions(position, moves);
-        this.addAllKnightCaptures(position, moves);
-        this.addAllBishopCaptures(position, moves);
-        this.addAllRookCaptures(position, moves);
-        this.addAllQueenCaptures(position, moves);
-        this.addAllKingCaptures(position, moves);
-
-        return moves;
+        this.addAllPawnPromotions(position);
+        this.addAllPawnPromotions(position);
+        this.addAllKnightCaptures(position);
+        this.addAllBishopCaptures(position);
+        this.addAllRookCaptures(position);
+        this.addAllQueenCaptures(position);
+        this.addAllKingCaptures(position);
     }
 
-    public void sortMoves(List<Move> moves, Move pv, Position position, int ply) {
-        Evaluation ttEval = transpositions.getEvaluationForPosition(position);
-        Move ttMove = null;
-        if (ttEval != null) ttMove = ttEval.getMove();
+    public void sortMoves(int pv, int ply, Position position) {
+        final long ttValue = transpositions.getEvaluationForPosition(position);
+        final int ttMove = ttValue != 0 ? Transpositions.getMove(ttValue) : 0;
 
-        final Move finalTtMove = ttMove;
-        moves.sort(
-                (moveOne, moveTwo) -> {
-                    if (moveOne.equals(moveTwo)) return 0;
+        for (int i = 1; i < moves.getMoveCount(ply) - 1; i++) {
+            int m1 = moves.getMove(ply, i);
+            int key = getMoveValue(m1, ttMove, pv, ply, position);
 
-                    if (moveOne.equals(finalTtMove)) return -1;
-                    if (moveTwo.equals(finalTtMove)) return 1;
+            int j = i - 1;
+            while (j >= 0) {
+                int m2 = this.moves.getMove(ply, j);
+                int curr = getMoveValue(m2, ttMove, pv, ply, position);
 
-                    if (moveOne.equals(pv)) return -1;
-                    if (moveTwo.equals(pv)) return 1;
+                if (curr >= key) break;
 
-                    if (moveOne.isCapture() && moveTwo.isCapture()) {
-                        int moveOneCapturedPiece = -1, moveTwoCapturedPiece = -1;
-                        for (int i = 0; i < 12; i++) {
-                            long bb = position.pieceBitboards[i];
+                this.moves.setMove(ply, j + 1, m2);
+                j--;
+            }
 
-                            if (getBit(bb, moveOne.getEnd())) moveOneCapturedPiece = i;
-
-                            if (getBit(bb, moveTwo.getEnd())) moveTwoCapturedPiece = i;
-
-                            if (moveOneCapturedPiece >= 0 && moveTwoCapturedPiece >= 0) break;
-                        }
-
-                        return Piece.mvvLva[moveTwo.getPieceIdx()][moveTwoCapturedPiece]
-                                - Piece.mvvLva[moveOne.getPieceIdx()][moveOneCapturedPiece];
-                    } else if (moveOne.isCapture()) {
-                        return -1;
-                    } else if (moveTwo.isCapture()) {
-                        return 1;
-                    } else {
-                        if (ply < 1000) {
-                            if (isAKiller(moveOne, ply) && isAKiller(moveTwo, ply)) {
-                                boolean moveOneFirst = moveOne.equals(killers[ply][0]);
-
-                                return moveOneFirst ? -1 : 1;
-                            } else if (isAKiller(moveOne, ply)) {
-                                return -1;
-                            } else if (isAKiller(moveTwo, ply)) {
-                                return 1;
-                            }
-                        }
-
-                        return this.historicalMoveScores[moveTwo.getPieceIdx()][moveTwo.getEnd()]
-                                - this.historicalMoveScores[moveOne.getPieceIdx()][
-                                        moveOne.getEnd()];
-                    }
-                });
+            this.moves.setMove(ply, j + 1, m1);
+        }
     }
 
-    public boolean isAKiller(Move move, int ply) {
-        return move.equals(killers[ply][0]) || move.equals(killers[ply][1]);
+    private int getMoveValue(int move, int ttMove, int pvMove, int ply, Position position) {
+        if (Move.equals(move, ttMove)) return Constants.CHECKMATE_MAX;
+        if (Move.equals(move, pvMove)) return Constants.CHECKMATE_MIN;
+
+        if (Move.isCapture(move)) {
+            for (int i = position.sideToMove; i < 10; i += 2) {
+                long bb = position.pieceBitboards[i];
+
+                if (getBit(bb, Move.getEnd(move)))
+                    return Piece.mvvLva[Move.getPieceIdx(move)][i]
+                            + (Constants.CHECKMATE_MIN - 5000);
+            }
+        }
+
+        if (isAKiller(move, ply))
+            if (Move.equals(move, killers[ply][0])) return 20001;
+            else return 20000;
+
+        return this.historicalMoveScores[Move.getPieceIdx(move)][Move.getEnd(move)];
+    }
+
+    public boolean isAKiller(int move, int ply) {
+        return Move.equals(move, killers[ply][0]) || Move.equals(move, killers[ply][1]);
     }
 }

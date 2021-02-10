@@ -3,16 +3,19 @@ package me.honnold.berserk.util;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import me.honnold.berserk.board.Position;
 import me.honnold.berserk.moves.Move;
 import me.honnold.berserk.moves.MoveGenerator;
+import me.honnold.berserk.moves.Moves;
 import org.apache.commons.lang3.ArrayUtils;
 
 public class EPD {
-    private static MoveGenerator moveGenerator = MoveGenerator.getInstance();
+    private static final Moves moves = Moves.getInstance();
+    private static final MoveGenerator moveGenerator = MoveGenerator.getInstance();
 
     public static List<EPDAnalysis> epdReader(String filename) throws IOException {
         File file = new File(EPD.class.getResource(filename).getFile());
@@ -43,9 +46,9 @@ public class EPD {
                             Position position = new Position(fen);
 
                             String move = fenParts[moveIdx + 1];
-                            Move bestMove =
-                                    epdMoveToMove(moveGenerator.getAllMoves(position), move);
-                            if (bestMove == null) {
+                            moveGenerator.addAllMoves(position, 0);
+                            int bestMove = epdMoveToMove(move);
+                            if (bestMove == 0) {
                                 System.out.println("Unable to parse: " + move);
                                 return Stream.empty();
                             }
@@ -55,41 +58,41 @@ public class EPD {
                 .collect(Collectors.toList());
     }
 
-    private static Move epdMoveToMove(List<Move> moves, String moveString) {
+    private static int epdMoveToMove(String moveString) {
         moveString = moveString.replaceAll("x", "").replaceAll("\\+", "");
 
         if (moveString.equals("O-O")) {
-            return moves.stream()
-                    .filter(m -> m.getPieceIdx() >= 10)
-                    .filter(m -> m.getEnd() - m.getStart() == 2)
+            return Arrays.stream(moves.getRawMoves(0), 0, moves.getMoveCount(0))
+                    .filter(move -> Move.getPieceIdx(move) >= 10)
+                    .filter(move -> Move.getEnd(move) - Move.getStart(move) == 2)
                     .findFirst()
-                    .orElse(null);
+                    .orElse(0);
         } else if (moveString.equals("O-O-O")) {
-            return moves.stream()
-                    .filter(m -> m.getPieceIdx() >= 10)
-                    .filter(m -> m.getStart() - m.getEnd() == 2)
+            return Arrays.stream(moves.getRawMoves(0), 0, moves.getMoveCount(0))
+                    .filter(move -> Move.getPieceIdx(move) >= 10)
+                    .filter(move -> Move.getStart(move) - Move.getEnd(move) == 2)
                     .findFirst()
-                    .orElse(null);
+                    .orElse(0);
         }
 
         if (moveString.length() == 2) {
             int end = ArrayUtils.indexOf(BBUtils.squares, moveString);
 
-            return moves.stream()
-                    .filter(m -> m.getPieceIdx() <= 1)
-                    .filter(m -> m.getEnd() == end)
+            return Arrays.stream(moves.getRawMoves(0), 0, moves.getMoveCount(0))
+                    .filter(move -> Move.getPieceIdx(move) <= 1)
+                    .filter(move -> Move.getEnd(move) == end)
                     .findFirst()
-                    .orElse(null);
+                    .orElse(0);
         } else if (moveString.length() == 3 && moveString.charAt(0) > 96) {
             int end = ArrayUtils.indexOf(BBUtils.squares, moveString.substring(1));
             int column = moveString.charAt(0) - 'a';
 
-            return moves.stream()
-                    .filter(m -> m.getPieceIdx() <= 1)
-                    .filter(m -> m.getEnd() == end)
-                    .filter(m -> m.getStart() % 8 == column)
+            return Arrays.stream(moves.getRawMoves(0), 0, moves.getMoveCount(0))
+                    .filter(move -> Move.getPieceIdx(move) <= 1)
+                    .filter(move -> Move.getEnd(move) == end)
+                    .filter(move -> Move.getStart(move) % 8 == column)
                     .findFirst()
-                    .orElse(null);
+                    .orElse(0);
         } else {
             char pieceChar = moveString.substring(0, 1).toUpperCase().charAt(0);
             if (moveString.length() == 3) {
@@ -97,46 +100,55 @@ public class EPD {
 
                 int piece = ArrayUtils.indexOf(BBUtils.pieceSymbols, pieceChar);
 
-                return moves.stream()
-                        .filter(m -> m.getPieceIdx() == piece || m.getPieceIdx() == piece + 1)
-                        .filter(m -> m.getEnd() == end)
+                return Arrays.stream(moves.getRawMoves(0), 0, moves.getMoveCount(0))
+                        .filter(
+                                move ->
+                                        Move.getPieceIdx(move) == piece
+                                                || Move.getPieceIdx(move) == piece + 1)
+                        .filter(move -> Move.getEnd(move) == end)
                         .findFirst()
-                        .orElse(null);
+                        .orElse(0);
             } else if (moveString.length() == 4 && moveString.charAt(1) > 57) {
                 int end = ArrayUtils.indexOf(BBUtils.squares, moveString.substring(2));
                 int column = moveString.charAt(1) - 'a';
 
                 int piece = ArrayUtils.indexOf(BBUtils.pieceSymbols, pieceChar);
-                return moves.stream()
-                        .filter(m -> m.getPieceIdx() == piece || m.getPieceIdx() == piece + 1)
-                        .filter(m -> m.getEnd() == end)
-                        .filter(m -> m.getStart() % 8 == column)
+                return Arrays.stream(moves.getRawMoves(0), 0, moves.getMoveCount(0))
+                        .filter(
+                                move ->
+                                        Move.getPieceIdx(move) == piece
+                                                || Move.getPieceIdx(move) == piece + 1)
+                        .filter(move -> Move.getEnd(move) == end)
+                        .filter(move -> Move.getStart(move) % 8 == column)
                         .findFirst()
-                        .orElse(null);
+                        .orElse(0);
             } else if (moveString.length() == 4) {
                 int end = ArrayUtils.indexOf(BBUtils.squares, moveString.substring(2));
                 int rank = Integer.parseInt(moveString.substring(1, 2));
 
                 int piece = ArrayUtils.indexOf(BBUtils.pieceSymbols, pieceChar);
-                return moves.stream()
-                        .filter(m -> m.getPieceIdx() == piece || m.getPieceIdx() == piece + 1)
-                        .filter(m -> m.getEnd() == end)
-                        .filter(m -> (8 - m.getStart() / 8) == rank)
+                return Arrays.stream(moves.getRawMoves(0), 0, moves.getMoveCount(0))
+                        .filter(
+                                move ->
+                                        Move.getPieceIdx(move) == piece
+                                                || Move.getPieceIdx(move) == piece + 1)
+                        .filter(move -> Move.getEnd(move) == end)
+                        .filter(move -> (8 - Move.getStart(move) / 8) == rank)
                         .findFirst()
-                        .orElse(null);
+                        .orElse(0);
             }
         }
 
-        return null;
+        return 0;
     }
 
     public static class EPDAnalysis {
         public String id;
         public Position position;
-        public Move move;
+        public int move;
         public boolean isBest;
 
-        public EPDAnalysis(String id, Position position, Move move, boolean isBest) {
+        public EPDAnalysis(String id, Position position, int move, boolean isBest) {
             this.id = id.replace("id ", "");
             this.position = position;
             this.move = move;

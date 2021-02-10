@@ -1,10 +1,10 @@
 package me.honnold.berserk;
 
-import java.util.List;
 import java.util.Scanner;
 import me.honnold.berserk.board.Position;
 import me.honnold.berserk.moves.Move;
 import me.honnold.berserk.moves.MoveGenerator;
+import me.honnold.berserk.moves.Moves;
 import me.honnold.berserk.search.PVS;
 import me.honnold.berserk.search.Repetitions;
 import me.honnold.berserk.util.BBUtils;
@@ -13,6 +13,7 @@ import me.honnold.berserk.util.TimeManager;
 import org.apache.commons.lang3.ArrayUtils;
 
 public class Berserk {
+    private final Moves moves = Moves.getInstance();
     private final Repetitions repetitions = Repetitions.getInstance();
     private final MoveGenerator moveGenerator = MoveGenerator.getInstance();
     private Position currentPosition =
@@ -65,8 +66,61 @@ public class Berserk {
         }
     }
 
+    private void printUci() {
+        println("id name berserk");
+        println("id author jhonnold");
+        println("uciok");
+    }
+
     private void println(Object o) {
         System.out.println(o);
+    }
+
+    private void position(String[] tokens) {
+        repetitions.clearPreviousPositions();
+
+        if (tokens[1].equals("startpos")) {
+            currentPosition =
+                    new Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+        } else if (tokens[1].equals("fen")) {
+            StringBuilder fen = new StringBuilder();
+            for (int i = 2; i < 8; i++) fen.append(tokens[i]).append(" ");
+
+            currentPosition = new Position(fen.toString());
+        }
+
+        int movesIdx = ArrayUtils.indexOf(tokens, "moves");
+        if (movesIdx < 0) return;
+
+        for (int i = movesIdx + 1; i < tokens.length; i++) {
+            String moveString = tokens[i].toLowerCase();
+
+            int start = ArrayUtils.indexOf(BBUtils.squares, moveString.substring(0, 2));
+            int end = ArrayUtils.indexOf(BBUtils.squares, moveString.substring(2, 4));
+            int promotionPiece = 0;
+
+            if (moveString.length() == 5) {
+                promotionPiece = ArrayUtils.indexOf(BBUtils.pieceSymbols, moveString.charAt(4));
+                promotionPiece -= (1 - currentPosition.sideToMove);
+            }
+
+            int foundMove = 0;
+            moveGenerator.addAllMoves(currentPosition, 0);
+
+            for (int j = 0; j < moves.getMoveCount(0); j++) {
+                int move = moves.getMove(0, j);
+                if (Move.getStart(move) == start
+                        && Move.getEnd(move) == end
+                        && Move.getPromotionPiece(move) == promotionPiece) {
+                    foundMove = move;
+                    break;
+                }
+            }
+
+            if (foundMove == 0) throw new RuntimeException("Move not found! " + moveString);
+            currentPosition.makeMove(foundMove);
+            repetitions.add(currentPosition.zHash);
+        }
     }
 
     private void go(String[] tokens) {
@@ -122,63 +176,14 @@ public class Berserk {
                             } catch (InterruptedException ignored) {
                             } finally {
                                 System.out.println(search.getResults());
-                                System.out.println("bestmove " + search.getResults().getBestMove());
+                                System.out.println(
+                                        "bestmove "
+                                                + Move.toString(search.getResults().getBestMove()));
                             }
                         });
 
         runner.start();
         return runner;
-    }
-
-    private void position(String[] tokens) {
-        repetitions.clearPreviousPositions();
-
-        if (tokens[1].equals("startpos")) {
-            currentPosition =
-                    new Position("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-        } else if (tokens[1].equals("fen")) {
-            StringBuilder fen = new StringBuilder();
-            for (int i = 2; i < 8; i++) fen.append(tokens[i]).append(" ");
-
-            currentPosition = new Position(fen.toString());
-        }
-
-        int movesIdx = ArrayUtils.indexOf(tokens, "moves");
-        if (movesIdx < 0) return;
-
-        for (int i = movesIdx + 1; i < tokens.length; i++) {
-            String moveString = tokens[i].toLowerCase();
-
-            int start = ArrayUtils.indexOf(BBUtils.squares, moveString.substring(0, 2));
-            int end = ArrayUtils.indexOf(BBUtils.squares, moveString.substring(2, 4));
-            int promotionPiece = 0;
-
-            if (moveString.length() == 5) {
-                promotionPiece = ArrayUtils.indexOf(BBUtils.pieceSymbols, moveString.charAt(4));
-                promotionPiece -= (1 - currentPosition.sideToMove);
-            }
-
-            Move foundMove = null;
-            List<Move> positionMoves = moveGenerator.getAllMoves(currentPosition);
-            for (Move m : positionMoves) {
-                if (m.getStart() == start
-                        && m.getEnd() == end
-                        && m.getPromotionPiece() == promotionPiece) {
-                    foundMove = m;
-                    break;
-                }
-            }
-
-            if (foundMove == null) throw new RuntimeException("Move not found! " + moveString);
-            currentPosition.makeMove(foundMove);
-            repetitions.add(currentPosition.zHash);
-        }
-    }
-
-    private void printUci() {
-        println("id name berserk");
-        println("id author jhonnold");
-        println("uciok");
     }
 
     public PVS.Results getSearchResults() {

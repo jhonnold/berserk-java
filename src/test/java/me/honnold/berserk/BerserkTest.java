@@ -61,8 +61,8 @@ public class BerserkTest {
         Thread wait = berserk.searchForTime(position, runTime);
         wait.join();
 
-        Move testResult = berserk.getSearchResults().getBestMove();
-        assertEquals(expected, testResult.toString());
+        int testResult = berserk.getSearchResults().getBestMove();
+        assertEquals(expected, Move.toString(testResult));
     }
 
     @ParameterizedTest
@@ -79,7 +79,7 @@ public class BerserkTest {
         Thread wait = berserk.searchForTime(epdAnalysis.position, 15000);
         wait.join();
 
-        Move testResult = berserk.getSearchResults().getBestMove();
+        int testResult = berserk.getSearchResults().getBestMove();
 
         if (epdAnalysis.isBest) {
             assertEquals(epdAnalysis.move, testResult);
@@ -102,7 +102,7 @@ public class BerserkTest {
         Thread wait = berserk.searchForTime(epdAnalysis.position, 15000);
         wait.join();
 
-        Move testResult = berserk.getSearchResults().getBestMove();
+        int testResult = berserk.getSearchResults().getBestMove();
 
         if (epdAnalysis.isBest) {
             assertEquals(epdAnalysis.move, testResult);
@@ -125,7 +125,7 @@ public class BerserkTest {
         Thread wait = berserk.searchForTime(epdAnalysis.position, 2500);
         wait.join();
 
-        Move testResult = berserk.getSearchResults().getBestMove();
+        int testResult = berserk.getSearchResults().getBestMove();
 
         if (epdAnalysis.isBest) {
             assertEquals(epdAnalysis.move, testResult);
@@ -145,10 +145,10 @@ public class BerserkTest {
                         + " move: "
                         + epdAnalysis.move);
 
-        Thread wait = berserk.searchForTime(epdAnalysis.position, 5000);
+        Thread wait = berserk.searchForTime(epdAnalysis.position, 2500);
         wait.join();
 
-        Move testResult = berserk.getSearchResults().getBestMove();
+        int testResult = berserk.getSearchResults().getBestMove();
 
         if (epdAnalysis.isBest) {
             assertEquals(epdAnalysis.move, testResult);
@@ -171,7 +171,7 @@ public class BerserkTest {
         Thread wait = berserk.searchForTime(epdAnalysis.position, 10000);
         wait.join();
 
-        Move testResult = berserk.getSearchResults().getBestMove();
+        int testResult = berserk.getSearchResults().getBestMove();
 
         if (epdAnalysis.isBest) {
             assertEquals(epdAnalysis.move, testResult);

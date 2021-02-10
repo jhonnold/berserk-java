@@ -12,7 +12,10 @@ import org.apache.commons.lang3.ArrayUtils;
 public class Position {
     private final AttackMasks attackMasks = AttackMasks.getInstance();
     private final ZobristHash hashUtil = ZobristHash.getInstance();
-
+    private final long[] zHashHistory = new long[512];
+    private final byte[] castleHistory = new byte[512];
+    private final int[] epHistory = new int[512];
+    private final int[] captureHistory = new int[32];
     public long[] pieceBitboards = new long[12];
     public long[] occupancyBitboards = new long[3];
     public byte sideToMove;
@@ -20,14 +23,8 @@ public class Position {
     public int epSquare;
     public long zHash;
     private GameStage stage = null;
-
     private int moves = 0;
-    private final long[] zHashHistory = new long[512];
-    private final byte[] castleHistory = new byte[512];
-    private final int[] epHistory = new int[512];
-
     private int captures = 0;
-    private final int[] captureHistory = new int[32];
 
     public Position(String fen) {
         String[] parts = fen.split("\\s+");
@@ -66,11 +63,11 @@ public class Position {
         return PositionEvaluations.getInstance().positionEvaluation(this);
     }
 
-    public void undoMove(Move m) {
-        int start = m.getStart();
-        int end = m.getEnd();
-        int piece = m.getPieceIdx();
-        int promotionPiece = m.getPromotionPiece();
+    public void undoMove(int move) {
+        int start = Move.getStart(move);
+        int end = Move.getEnd(move);
+        int piece = Move.getPieceIdx(move);
+        int promotionPiece = Move.getPromotionPiece(move);
 
         this.sideToMove ^= 1;
         this.popPositionHistory();
@@ -78,21 +75,21 @@ public class Position {
         this.pieceBitboards[piece] = popBit(this.pieceBitboards[piece], end);
         this.pieceBitboards[piece] = setBit(this.pieceBitboards[piece], start);
 
-        if (m.isCapture()) {
+        if (Move.isCapture(move)) {
             int capturedPiece = this.popCapture();
             this.pieceBitboards[capturedPiece] = setBit(this.pieceBitboards[capturedPiece], end);
         }
 
-        if (m.isPromotion()) {
+        if (Move.isPromotion(move)) {
             this.pieceBitboards[promotionPiece] = popBit(this.pieceBitboards[promotionPiece], end);
         }
 
-        if (m.isEPCapture()) {
+        if (Move.isEPCapture(move)) {
             this.pieceBitboards[1 - sideToMove] =
                     setBit(this.pieceBitboards[1 - sideToMove], end - pawnDirections[sideToMove]);
         }
 
-        if (m.isCastle()) {
+        if (Move.isCastle(move)) {
             switch (end) {
                 case 62:
                     this.pieceBitboards[6] = popBit(this.pieceBitboards[6], 61);
@@ -156,11 +153,11 @@ public class Position {
         this.popPositionHistory();
     }
 
-    public boolean makeMove(Move m) {
-        int start = m.getStart();
-        int end = m.getEnd();
-        int piece = m.getPieceIdx();
-        int promotionPiece = m.getPromotionPiece();
+    public boolean makeMove(int move) {
+        int start = Move.getStart(move);
+        int end = Move.getEnd(move);
+        int piece = Move.getPieceIdx(move);
+        int promotionPiece = Move.getPromotionPiece(move);
 
         this.savePositionHistory();
 
@@ -170,7 +167,7 @@ public class Position {
         this.pieceBitboards[piece] = setBit(this.pieceBitboards[piece], end);
         this.zHash ^= hashUtil.getPieceKey(piece, end);
 
-        if (m.isCapture()) {
+        if (Move.isCapture(move)) {
             for (int i = (1 - sideToMove); i < 12; i += 2) {
                 if (getBit(this.pieceBitboards[i], end)) {
                     this.addCapturedPiece(i);
@@ -181,7 +178,7 @@ public class Position {
             }
         }
 
-        if (m.isPromotion()) {
+        if (Move.isPromotion(move)) {
             this.pieceBitboards[sideToMove] = popBit(this.pieceBitboards[sideToMove], end);
             this.zHash ^= hashUtil.getPieceKey(sideToMove, end);
 
@@ -189,7 +186,7 @@ public class Position {
             this.zHash ^= hashUtil.getPieceKey(promotionPiece, end);
         }
 
-        if (m.isEPCapture()) {
+        if (Move.isEPCapture(move)) {
             this.pieceBitboards[1 - sideToMove] =
                     popBit(
                             this.pieceBitboards[1 - sideToMove],
@@ -202,12 +199,12 @@ public class Position {
             this.epSquare = -1;
         }
 
-        if (m.isDoublePush()) {
+        if (Move.isDoublePush(move)) {
             this.epSquare = end - pawnDirections[this.sideToMove];
             this.zHash ^= hashUtil.getEpKey(this.epSquare);
         }
 
-        if (m.isCastle()) {
+        if (Move.isCastle(move)) {
             switch (end) {
                 case 62:
                     this.pieceBitboards[6] = popBit(this.pieceBitboards[6], 63);

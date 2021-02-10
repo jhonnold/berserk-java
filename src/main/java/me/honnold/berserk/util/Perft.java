@@ -3,8 +3,10 @@ package me.honnold.berserk.util;
 import me.honnold.berserk.board.Position;
 import me.honnold.berserk.moves.Move;
 import me.honnold.berserk.moves.MoveGenerator;
+import me.honnold.berserk.moves.Moves;
 
 public class Perft {
+    private static final Moves moves = Moves.getInstance();
     private static final MoveGenerator moveGenerator = MoveGenerator.getInstance();
 
     public static long runPerft(String fen, int depth) {
@@ -17,16 +19,18 @@ public class Perft {
         long result = 0;
 
         long start = System.nanoTime();
-        for (Move m : moveGenerator.getAllMoves(startingPos)) {
-            boolean validMove = startingPos.makeMove(m);
+        moveGenerator.addAllMoves(startingPos, depth);
+        for (int i = 0; i < moves.getMoveCount(depth); i++) {
+            int move = moves.getMove(depth, i);
+            boolean validMove = startingPos.makeMove(move);
 
             if (validMove) {
                 long nodes = perft.perft(startingPos, depth - 1);
-                System.out.printf("%s: %d%n", m, nodes);
+                System.out.printf("%s: %d%n", Move.toString(move), nodes);
                 result += nodes;
             }
 
-            startingPos.undoMove(m);
+            startingPos.undoMove(move);
         }
         long end = System.nanoTime();
 
@@ -40,12 +44,14 @@ public class Perft {
 
         if (depth == 0) return 1;
 
-        for (Move m : moveGenerator.getAllMoves(position)) {
-            boolean validMove = position.makeMove(m);
+        moveGenerator.addAllMoves(position, depth);
+        for (int i = 0; i < moves.getMoveCount(depth); i++) {
+            int move = moves.getMove(depth, i);
+            boolean validMove = position.makeMove(move);
 
             if (validMove) nodes += perft(position, depth - 1);
 
-            position.undoMove(m);
+            position.undoMove(move);
         }
 
         return nodes;

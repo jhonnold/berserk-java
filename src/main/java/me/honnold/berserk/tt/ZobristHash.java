@@ -1,10 +1,10 @@
 package me.honnold.berserk.tt;
 
-import me.honnold.berserk.board.Position;
-import me.honnold.berserk.util.Random;
-
 import static me.honnold.berserk.util.BBUtils.getLSBIndex;
 import static me.honnold.berserk.util.BBUtils.popBit;
+
+import me.honnold.berserk.board.Position;
+import me.honnold.berserk.util.Random;
 
 public class ZobristHash {
     private static final ZobristHash singleton = new ZobristHash();

@@ -1,6 +1,5 @@
 package me.honnold.berserk.search;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import me.honnold.berserk.board.GameStage;
 import me.honnold.berserk.board.Piece;
@@ -8,12 +7,11 @@ import me.honnold.berserk.board.Position;
 import me.honnold.berserk.eval.Constants;
 import me.honnold.berserk.moves.Move;
 import me.honnold.berserk.moves.MoveGenerator;
-import me.honnold.berserk.tt.Evaluation;
-import me.honnold.berserk.tt.EvaluationFlag;
+import me.honnold.berserk.moves.Moves;
 import me.honnold.berserk.tt.Transpositions;
 
 public class PVS implements Runnable {
-    public static final int MAX_DEPTH = 100;
+    public static final int MAX_DEPTH = 63;
     private static final int[][] LMR_TABLE = new int[64][64];
 
     static {
@@ -27,11 +25,14 @@ public class PVS implements Runnable {
     }
 
     private final Repetitions repetitions = Repetitions.getInstance();
+    private final int[] futilityMargins = {0, 80, 170, 270, 380, 500, 630};
+    private final int[] razors = {0, 240, 280, 300};
     private final int[] pvLength = new int[MAX_DEPTH];
-    private final Move[][] pvTable = new Move[MAX_DEPTH][MAX_DEPTH];
+    private final int[][] pvTable = new int[MAX_DEPTH][MAX_DEPTH];
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final MoveGenerator moveGenerator = MoveGenerator.getInstance();
     private final Transpositions transpositions = Transpositions.getInstance();
+    private final Moves moves = Moves.getInstance();
     private final Position root;
     private final Results results;
 
@@ -107,33 +108,35 @@ public class PVS implements Runnable {
 
         pvLength[ply] = ply;
 
-        if (depth <= 0) return quiesce(alpha, beta, position);
+        if (depth <= 0) return quiesce(alpha, beta, ply, position);
 
         boolean isPv = beta - alpha != 1;
 
-        Evaluation evaluation = transpositions.getEvaluationForPosition(position);
-        if (evaluation != null && evaluation.getDepth() >= depth) {
+        long value = transpositions.getEvaluationForPosition(position);
+        if (value != 0 && Transpositions.getDepth(value) >= depth) {
             this.results.incTableHits();
 
-            int score = evaluation.getScore(ply);
-            if (evaluation.getFlag() == EvaluationFlag.EXACT) return score;
-            if (evaluation.getFlag() == EvaluationFlag.LOWER && score >= beta) return score;
-            if (evaluation.getFlag() == EvaluationFlag.UPPER && score <= alpha) return score;
+            int score = Transpositions.getScore(value, ply);
+            int flag = Transpositions.getFlag(value);
+            if (flag == Transpositions.EXACT) return score;
+            if (flag == Transpositions.LOWER && score >= beta) return score;
+            if (flag == Transpositions.UPPER && score <= alpha) return score;
         }
 
         results.incNodes();
 
         int score = -Constants.CHECKMATE_MAX, bestScore = score - 1, alphaOg = alpha;
-        Move bestMove = null;
+        int bestMove = 0;
 
         int staticEval = position.getValue();
         if (!isPv && !inCheck) {
-            if (evaluation != null && evaluation.getDepth() >= depth) {
-                EvaluationFlag flag = evaluation.getFlag();
-                int evalScore = evaluation.getScore(ply);
-                if (flag == EvaluationFlag.EXACT
-                        || flag == EvaluationFlag.UPPER && evalScore < staticEval
-                        || flag == EvaluationFlag.LOWER && evalScore > staticEval) {
+            if (value != 0 && Transpositions.getDepth(value) >= depth) {
+                int evalScore = Transpositions.getScore(value, ply);
+                int flag = Transpositions.getFlag(value);
+
+                if (flag == Transpositions.EXACT
+                        || flag == Transpositions.UPPER && evalScore < staticEval
+                        || flag == Transpositions.LOWER && evalScore > staticEval) {
                     staticEval = evalScore;
                 }
             }
@@ -146,10 +149,14 @@ public class PVS implements Runnable {
                 }
             }
 
-            int[] razors = {0, 240, 280, 300};
             if (depth < 4 && Math.abs(alpha) < Constants.CHECKMATE_MIN) {
                 if (staticEval + razors[depth] < alpha) {
-                    score = quiesce(alpha - razors[depth], alpha - razors[depth] + 1, position);
+                    score =
+                            quiesce(
+                                    alpha - razors[depth],
+                                    alpha - razors[depth] + 1,
+                                    ply,
+                                    position);
                     if (score + razors[depth] <= alpha) {
                         return score;
                     }
@@ -180,20 +187,20 @@ public class PVS implements Runnable {
         }
 
         boolean enableFutilityPruning = false;
-        int[] futilityMargins = {0, 80, 170, 270, 380, 500, 630};
         if (depth <= 6
                 && !isPv
                 && !inCheck
                 && Math.abs(alpha) < Constants.CHECKMATE_MIN
                 && staticEval + futilityMargins[depth] <= alpha) enableFutilityPruning = true;
 
-        List<Move> moves = moveGenerator.getAllMoves(position);
-        moveGenerator.sortMoves(moves, pvTable[0][ply], position, ply);
+        moveGenerator.addAllMoves(position, ply);
+        moveGenerator.sortMoves(pvTable[0][ply], ply, position);
 
         boolean hasLegalMove = false;
 
         int searches = 0;
-        for (Move move : moves) {
+        for (int i = 0; i < moves.getMoveCount(ply); i++) {
+            int move = moves.getMove(ply, i);
             boolean isValid = position.makeMove(move);
             if (!isValid) {
                 position.undoMove(move);
@@ -209,9 +216,9 @@ public class PVS implements Runnable {
             } else {
                 repetitions.add(position.zHash);
                 if (enableFutilityPruning
-                        && !move.isCapture()
-                        && !move.isEPCapture()
-                        && !move.isPromotion()
+                        && !Move.isCapture(move)
+                        && !Move.isEPCapture(move)
+                        && !Move.isPromotion(move)
                         && !position.inCheck()) {
                     position.undoMove(move);
                     repetitions.pop();
@@ -225,9 +232,9 @@ public class PVS implements Runnable {
 
                 if (depth > 2
                         && searches > 1
-                        && !move.isCapture()
-                        && !move.isEPCapture()
-                        && !move.isPromotion()) {
+                        && !Move.isCapture(move)
+                        && !Move.isEPCapture(move)
+                        && !Move.isPromotion(move)) {
                     reductionDepth = LMR_TABLE[Math.min(depth, 63)][Math.min(searches, 63)];
 
                     if (moveGenerator.isAKiller(move, ply)) reductionDepth--;
@@ -286,13 +293,13 @@ public class PVS implements Runnable {
                 if (alpha >= beta) {
                     this.results.incFailHighs();
 
-                    if (!move.isCapture() && !move.isEPCapture())
+                    if (!Move.isCapture(move) && !Move.isEPCapture(move))
                         moveGenerator.addKiller(move, ply);
 
                     break;
                 }
 
-                if (!move.isCapture() && !move.isEPCapture())
+                if (!Move.isCapture(move) && !Move.isEPCapture(move))
                     moveGenerator.setHistoricalMoveScore(move, alpha);
             }
         }
@@ -302,38 +309,40 @@ public class PVS implements Runnable {
             else bestScore = 0;
         }
 
-        EvaluationFlag flag = EvaluationFlag.EXACT;
+        int flag = Transpositions.EXACT;
         if (bestScore >= beta) {
-            flag = EvaluationFlag.LOWER;
+            flag = Transpositions.LOWER;
         } else if (bestScore <= alphaOg) {
-            flag = EvaluationFlag.UPPER;
+            flag = Transpositions.UPPER;
         }
 
         transpositions.putEvaluationForPosition(position, depth, bestScore, flag, bestMove);
         return bestScore;
     }
 
-    public int quiesce(int alpha, int beta, Position position) {
+    public int quiesce(int alpha, int beta, int ply, Position position) {
         this.results.incNodes();
 
-        Evaluation evaluation = transpositions.getEvaluationForPosition(position);
-        if (evaluation != null) {
+        long ttValue = transpositions.getEvaluationForPosition(position);
+        if (ttValue != 0) {
             this.results.incTableHits();
 
-            int score = evaluation.getScore(MAX_DEPTH);
-            if (evaluation.getFlag() == EvaluationFlag.EXACT) return score;
-            if (evaluation.getFlag() == EvaluationFlag.LOWER && score >= beta) return score;
-            if (evaluation.getFlag() == EvaluationFlag.UPPER && score <= alpha) return score;
+            int score = Transpositions.getScore(ttValue, ply);
+            int flag = Transpositions.getFlag(ttValue);
+            if (flag == Transpositions.EXACT) return score;
+            if (flag == Transpositions.LOWER && score >= beta) return score;
+            if (flag == Transpositions.UPPER && score <= alpha) return score;
         }
 
         int staticEval = position.getValue();
-        if (evaluation != null) {
-            if (evaluation.getFlag() == EvaluationFlag.EXACT
-                    || evaluation.getFlag() == EvaluationFlag.UPPER
-                            && evaluation.getScore(MAX_DEPTH) < staticEval
-                    || evaluation.getFlag() == EvaluationFlag.LOWER
-                            && evaluation.getScore(MAX_DEPTH) > staticEval) {
-                staticEval = evaluation.getScore(MAX_DEPTH);
+        if (ttValue != 0) {
+            int score = Transpositions.getScore(ttValue, ply);
+            int flag = Transpositions.getFlag(ttValue);
+
+            if (flag == Transpositions.EXACT
+                    || flag == Transpositions.UPPER && score < staticEval
+                    || flag == Transpositions.LOWER && score > staticEval) {
+                staticEval = score;
             }
         }
 
@@ -343,26 +352,28 @@ public class PVS implements Runnable {
 
         GameStage stage = position.getGameStage();
 
-        List<Move> moves = moveGenerator.getAllCapturesAndPromotions(position);
+        moveGenerator.addAllCapturesAndPromotions(position, ply);
 
-        for (Move m : moves) {
-            if (m.isPromotion()) {
-                if (m.getPromotionPiece() < 8) continue;
+        for (int i = 0; i < moves.getMoveCount(ply); i++) {
+            int move = moves.getMove(ply, i);
+            if (Move.isPromotion(move)) {
+                if (Move.getPromotionPiece(move) < 8) continue;
             } else if (staticEval
                             + 150
-                            + Piece.getPieceValue(position.getCapturedPieceIdx(m.getEnd()), stage)
+                            + Piece.getPieceValue(
+                                    position.getCapturedPieceIdx(Move.getEnd(move)), stage)
                     < alpha) {
                 continue;
             }
 
-            boolean isValid = position.makeMove(m);
+            boolean isValid = position.makeMove(move);
             if (!isValid) {
-                position.undoMove(m);
+                position.undoMove(move);
                 continue;
             }
 
-            int score = -1 * quiesce(-beta, -alpha, position);
-            position.undoMove(m);
+            int score = -1 * quiesce(-beta, -alpha, ply + 1, position);
+            position.undoMove(move);
 
             if (!running.get()) return 0;
 
@@ -403,7 +414,8 @@ public class PVS implements Runnable {
 
     private String getPv() {
         StringBuilder builder = new StringBuilder();
-        for (int i = 0; i < pvLength[0]; i++) builder.append(pvTable[0][i]).append(" ");
+        for (int i = 0; i < pvLength[0]; i++)
+            builder.append(Move.toString(pvTable[0][i])).append(" ");
 
         return builder.toString();
     }
@@ -419,7 +431,7 @@ public class PVS implements Runnable {
     public static class Results {
         private final long startTime;
         private int score;
-        private Move bestMove;
+        private int bestMove;
         private int nodes;
         private int tableHits;
         private int staticEvalTrims;
@@ -442,11 +454,11 @@ public class PVS implements Runnable {
             this.score = score;
         }
 
-        public Move getBestMove() {
+        public int getBestMove() {
             return bestMove;
         }
 
-        public void setBestMove(Move bestMove) {
+        public void setBestMove(int bestMove) {
             this.bestMove = bestMove;
         }
 
@@ -524,7 +536,7 @@ public class PVS implements Runnable {
                     + "score="
                     + score
                     + ", bestMove="
-                    + bestMove
+                    + Move.toString(bestMove)
                     + ", nodes="
                     + nodes
                     + ", tableHits="
