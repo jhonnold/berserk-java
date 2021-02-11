@@ -113,12 +113,12 @@ public class PVS implements Runnable {
 
         boolean isPv = beta - alpha != 1;
 
-        long value = transpositions.getEvaluationForPosition(position);
-        if (value != 0 && Transpositions.getDepth(value) >= depth) {
+        long transposition = transpositions.getEvaluationForPosition(position);
+        if (transposition != 0 && Transpositions.getDepth(transposition) >= depth) {
             this.results.incTableHits();
 
-            int score = Transpositions.getScore(value, ply);
-            int flag = Transpositions.getFlag(value);
+            int score = Transpositions.getScore(transposition, ply);
+            int flag = Transpositions.getFlag(transposition);
             if (flag == Transpositions.EXACT) return score;
             if (flag == Transpositions.LOWER && score >= beta) return score;
             if (flag == Transpositions.UPPER && score <= alpha) return score;
@@ -131,9 +131,9 @@ public class PVS implements Runnable {
 
         int staticEval = position.getValue();
         if (!isPv && !inCheck) {
-            if (value != 0 && Transpositions.getDepth(value) >= depth) {
-                int evalScore = Transpositions.getScore(value, ply);
-                int flag = Transpositions.getFlag(value);
+            if (transposition != 0 && Transpositions.getDepth(transposition) >= depth) {
+                int evalScore = Transpositions.getScore(transposition, ply);
+                int flag = Transpositions.getFlag(transposition);
 
                 if (flag == Transpositions.EXACT
                         || flag == Transpositions.UPPER && evalScore < staticEval
@@ -159,6 +159,7 @@ public class PVS implements Runnable {
                                     ply,
                                     position);
                     if (score + razors[depth] <= alpha) {
+                        this.results.incRazors();
                         return score;
                     }
                 }
@@ -358,6 +359,7 @@ public class PVS implements Runnable {
         GameStage stage = position.getGameStage();
 
         moveGenerator.addAllCapturesAndPromotions(position, ply);
+        moveGenerator.sortMoves(0, ply, position);
 
         for (int i = 0; i < moves.getMoveCount(ply); i++) {
             int move = moves.getMove(ply, i);
