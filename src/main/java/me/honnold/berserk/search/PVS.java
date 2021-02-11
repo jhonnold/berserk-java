@@ -289,14 +289,17 @@ public class PVS implements Runnable {
                 if (alpha >= beta) {
                     this.results.incFailHighs();
 
-                    if (!Move.isCapture(move) && !Move.isEPCapture(move))
+                    if (!Move.isCapture(move) && !Move.isEPCapture(move) && !Move.isPromotion(move) && !inCheck) {
                         moveGenerator.addKiller(move, ply);
+                        moveGenerator.setHistoricalMoveScore(position.sideToMove, move, depth);
+                    }
 
                     break;
                 }
 
-                if (!Move.isCapture(move) && !Move.isEPCapture(move))
-                    moveGenerator.setHistoricalMoveScore(move, alpha);
+                if (!Move.isCapture(move) && !Move.isEPCapture(move) && !Move.isPromotion(move)) {
+                    moveGenerator.setBFMove(position.sideToMove, move, depth);
+                }
             }
         }
 

@@ -15,7 +15,7 @@ public class Transpositions {
     // 2 bits = flag
     // 6 bits = depth
     // 24 bits = move
-    private final int power = 20;
+    private final int power = 18;
     private final int shifts = 64 - power;
     private final long[] transpositions;
     private final int bucketSize = 4;

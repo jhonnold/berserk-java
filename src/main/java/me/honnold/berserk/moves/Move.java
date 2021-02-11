@@ -74,6 +74,10 @@ public class Move {
         return (data & END_MASK) >> 6;
     }
 
+    public static int getStartEnd(int data) {
+        return (data & 0xFFF);
+    }
+
     public static boolean isPromotion(int data) {
         return getPromotionPiece(data) != 0;
     }
