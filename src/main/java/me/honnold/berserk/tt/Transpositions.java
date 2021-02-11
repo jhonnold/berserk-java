@@ -1,27 +1,31 @@
 package me.honnold.berserk.tt;
 
-import java.util.Arrays;
 import me.honnold.berserk.board.Position;
 import me.honnold.berserk.eval.Constants;
+
+import java.util.Arrays;
 
 public class Transpositions {
     public static final int LOWER = 0;
     public static final int UPPER = 1;
     public static final int EXACT = 2;
     private static final Transpositions singleton = new Transpositions();
-
+    public final int hashsize;
     // 32 bits = score TODO: Make this smaller so depth can go up
     // 2 bits = flag
     // 6 bits = depth
     // 24 bits = move
-    private final int power = 18;
+    private final int power = 20;
     private final int shifts = 64 - power;
     private final long[] transpositions;
     private final int bucketSize = 4;
     public int collisions = 0;
+    public int hashes;
 
     private Transpositions() {
-        transpositions = new long[(int) ((1L << power) * bucketSize * 2)];
+        this.hashsize = (int) ((1L << power) * bucketSize);
+
+        transpositions = new long[this.hashsize * 2];
     }
 
     public static Transpositions getInstance() {
@@ -50,6 +54,7 @@ public class Transpositions {
 
     public void clearEvaluations() {
         collisions = 0;
+        hashes = 0;
         Arrays.fill(transpositions, 0);
     }
 
@@ -93,7 +98,11 @@ public class Transpositions {
             }
         }
 
-        if (transpositions[replaceIdx] != p.zHash) collisions++;
+        if (transpositions[replaceIdx] != p.zHash) {
+            collisions++;
+        } else {
+            hashes++;
+        }
 
         transpositions[replaceIdx] = p.zHash;
         transpositions[replaceIdx + 1] = createValue(depth, score, flag, move);

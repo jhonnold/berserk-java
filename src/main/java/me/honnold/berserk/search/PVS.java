@@ -1,6 +1,5 @@
 package me.honnold.berserk.search;
 
-import java.util.concurrent.atomic.AtomicBoolean;
 import me.honnold.berserk.board.GameStage;
 import me.honnold.berserk.board.Piece;
 import me.honnold.berserk.board.Position;
@@ -9,6 +8,8 @@ import me.honnold.berserk.moves.Move;
 import me.honnold.berserk.moves.MoveGenerator;
 import me.honnold.berserk.moves.Moves;
 import me.honnold.berserk.tt.Transpositions;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PVS implements Runnable {
     public static final int MAX_DEPTH = 63;
@@ -360,9 +361,9 @@ public class PVS implements Runnable {
             if (Move.isPromotion(move)) {
                 if (Move.getPromotionPiece(move) < 8) continue;
             } else if (staticEval
-                            + 150
-                            + Piece.getPieceValue(
-                                    position.getCapturedPieceIdx(Move.getEnd(move)), stage)
+                    + 150
+                    + Piece.getPieceValue(
+                    position.getCapturedPieceIdx(Move.getEnd(move)), stage)
                     < alpha) {
                 continue;
             }
@@ -391,8 +392,8 @@ public class PVS implements Runnable {
                 Math.abs(score) <= Constants.CHECKMATE_MIN
                         ? score
                         : score < -Constants.CHECKMATE_MIN
-                                ? -((Constants.CHECKMATE_MAX + score) / 2 + 1)
-                                : (Constants.CHECKMATE_MAX - score) / 2 + 1;
+                        ? -((Constants.CHECKMATE_MAX + score) / 2 + 1)
+                        : (Constants.CHECKMATE_MAX - score) / 2 + 1;
 
         String output =
                 "info depth "
@@ -404,10 +405,12 @@ public class PVS implements Runnable {
                         + results.getNodes()
                         + " nps "
                         + String.format(
-                                "%.0f",
-                                1_000_000_000.0
-                                        * results.getNodes()
-                                        / (System.nanoTime() - results.getStartTime()))
+                        "%.0f",
+                        1_000_000_000.0
+                                * results.getNodes()
+                                / (System.nanoTime() - results.getStartTime()))
+                        + " hashfull "
+                        + String.format("%.0f", 100.0 * transpositions.hashes / transpositions.hashsize)
                         + " pv "
                         + getPv();
         System.out.println(output);
