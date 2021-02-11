@@ -159,6 +159,37 @@ public class Piece {
         }
     };
 
+    public static int[][][] mobilities = {
+        { // knights
+            {-23, -20, -4, -2, 2, 4, 8, 12, 16},
+            {-27, -24, -12, -8, 4, 6, 6, 8, 10},
+        },
+        { // bishops
+            {-19, -7, 5, 11, 15, 19, 19, 23, 23, 27, 31, 33, 35, 37},
+            {-23, -9, -3, 5, 7, 15, 21, 23, 25, 27, 31, 35, 35, 39},
+        },
+        { // rooks
+            {-23, -7, 0, 0, 1, 3, 7, 11, 15, 15, 15, 19, 23, 23, 25},
+            {-31, -7, 9, 15, 27, 39, 41, 46, 50, 54, 62, 62, 66, 66, 66},
+        },
+        { // queens
+            {
+                -11, -5, -3, -3, 7, 9, 9, 15, 15, 21, 25, 27, 27, 27, 27, 27, 27, 27, 29, 29, 35,
+                41, 41, 41, 42, 44, 44, 46
+            },
+            {
+                -19, -11, -3, 7, 15, 19, 23, 27, 29, 37, 37, 39, 50, 50, 50, 50, 52, 54, 58, 58, 58,
+                66, 66, 66, 70, 72, 74, 85
+            },
+        }
+    };
+
+    public static int getPieceMobilityValue(int pieceIdx, int squares, GameStage stage) {
+        int gameStageIdx = stage == GameStage.OPENING ? 0 : 1;
+
+        return mobilities[(pieceIdx >> 1) - 1][gameStageIdx][squares];
+    }
+
     public static int getPieceValue(int pieceIdx, GameStage stage) {
         if (stage == GameStage.OPENING) return pieceValues[0][pieceIdx >> 1];
         else if (stage == GameStage.ENDGAME) return pieceValues[1][pieceIdx >> 1];

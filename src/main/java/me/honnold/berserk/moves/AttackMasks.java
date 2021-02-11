@@ -38,8 +38,8 @@ public class AttackMasks {
         5, 5, 5, 5, 5, 5, 5, 5,
         6, 5, 5, 5, 5, 5, 5, 6
     };
-    private final long NOT_A_FILE = -72340172838076674L;
-    private final long NOT_H_FILE = 9187201950435737471L;
+    public final long NOT_A_FILE = -72340172838076674L;
+    public final long NOT_H_FILE = 9187201950435737471L;
     private final long NOT_AB_FILE = -217020518514230020L;
     private final long NOT_GH_FILE = 4557430888798830399L;
 

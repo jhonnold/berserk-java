@@ -1,14 +1,13 @@
 package me.honnold.berserk.board;
 
+import static me.honnold.berserk.util.BBUtils.*;
+
+import java.util.Arrays;
 import me.honnold.berserk.eval.PositionEvaluations;
 import me.honnold.berserk.moves.AttackMasks;
 import me.honnold.berserk.moves.Move;
 import me.honnold.berserk.tt.ZobristHash;
 import org.apache.commons.lang3.ArrayUtils;
-
-import java.util.Arrays;
-
-import static me.honnold.berserk.util.BBUtils.*;
 
 public class Position {
     private final AttackMasks attackMasks = AttackMasks.getInstance();
@@ -121,6 +120,16 @@ public class Position {
         for (int i = 0; i < 12; i++) occupancyBitboards[i % 2] |= pieceBitboards[i];
 
         occupancyBitboards[2] = occupancyBitboards[0] | occupancyBitboards[1];
+    }
+
+    public long pawnAttacks(int side) {
+        if (side == 0) {
+            return ((pieceBitboards[0] >>> 7) & attackMasks.NOT_A_FILE)
+                    | ((pieceBitboards[0] >>> 9) & attackMasks.NOT_H_FILE);
+        } else {
+            return ((pieceBitboards[1] << 7) & attackMasks.NOT_H_FILE)
+                    | ((pieceBitboards[1] << 9) & attackMasks.NOT_A_FILE);
+        }
     }
 
     private void popPositionHistory() {
@@ -280,12 +289,12 @@ public class Position {
             return true;
         if ((attackMasks.getKnightAttacks(square) & pieceBitboards[2 + bySide]) != 0) return true;
         if ((attackMasks.getBishopAttacks(square, occupancyBitboards[2])
-                & pieceBitboards[4 + bySide])
+                        & pieceBitboards[4 + bySide])
                 != 0) return true;
         if ((attackMasks.getRookAttacks(square, occupancyBitboards[2]) & pieceBitboards[6 + bySide])
                 != 0) return true;
         if ((attackMasks.getQueenAttacks(square, occupancyBitboards[2])
-                & pieceBitboards[8 + bySide])
+                        & pieceBitboards[8 + bySide])
                 != 0) return true;
 
         return (attackMasks.getKingAttacks(square) & pieceBitboards[10 + bySide]) != 0;
