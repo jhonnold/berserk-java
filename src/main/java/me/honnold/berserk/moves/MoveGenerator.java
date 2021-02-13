@@ -1,13 +1,11 @@
 package me.honnold.berserk.moves;
 
-import me.honnold.berserk.board.GameStage;
-import me.honnold.berserk.board.Piece;
-import me.honnold.berserk.board.Position;
-import me.honnold.berserk.tt.Transpositions;
+import static me.honnold.berserk.util.BBUtils.*;
 
 import java.util.Arrays;
-
-import static me.honnold.berserk.util.BBUtils.*;
+import me.honnold.berserk.board.Position;
+import me.honnold.berserk.eval.Piece;
+import me.honnold.berserk.tt.Transpositions;
 
 public class MoveGenerator {
     private static final MoveGenerator singleton = new MoveGenerator();
@@ -25,8 +23,7 @@ public class MoveGenerator {
     private int[][] bfMoveScores = new int[2][64 * 64];
     private int[][] killers = new int[100][2];
 
-    private MoveGenerator() {
-    }
+    private MoveGenerator() {}
 
     public static MoveGenerator getInstance() {
         return singleton;
@@ -305,16 +302,13 @@ public class MoveGenerator {
             int start = getLSBIndex(pieceBoard);
             pieceBoard = popLSB(pieceBoard);
 
-            long attacks =
-                    masks.getKnightAttacks(start)
-                            & ~position.occupancyBitboards[2];
+            long attacks = masks.getKnightAttacks(start) & ~position.occupancyBitboards[2];
 
             while (attacks != 0) {
                 int end = getLSBIndex(attacks);
                 attacks = popLSB(attacks);
 
-                moves.add(
-                        Move.createMove(start, end, knightIdx, 0, false, false, false, false));
+                moves.add(Move.createMove(start, end, knightIdx, 0, false, false, false, false));
             }
         }
     }
@@ -356,8 +350,7 @@ public class MoveGenerator {
                 int end = getLSBIndex(attacks);
                 attacks = popLSB(attacks);
 
-                moves.add(
-                        Move.createMove(start, end, bishopIdx, 0, false, false, false, false));
+                moves.add(Move.createMove(start, end, bishopIdx, 0, false, false, false, false));
             }
         }
     }
@@ -505,7 +498,8 @@ public class MoveGenerator {
             pieceBoard = popLSB(pieceBoard);
 
             long attacks =
-                    masks.getKingAttacks(start) & position.occupancyBitboards[1 - position.sideToMove];
+                    masks.getKingAttacks(start)
+                            & position.occupancyBitboards[1 - position.sideToMove];
 
             while (attacks != 0) {
                 int end = getLSBIndex(attacks);
@@ -524,8 +518,7 @@ public class MoveGenerator {
             int start = getLSBIndex(pieceBoard);
             pieceBoard = popLSB(pieceBoard);
 
-            long attacks =
-                    masks.getKingAttacks(start) & ~position.occupancyBitboards[2];
+            long attacks = masks.getKingAttacks(start) & ~position.occupancyBitboards[2];
 
             while (attacks != 0) {
                 int end = getLSBIndex(attacks);
@@ -585,15 +578,16 @@ public class MoveGenerator {
         }
 
         if (Move.isPromotion(move)) {
-            return CAPTURE + Piece.getPieceValue(8, GameStage.OPENING);
+            return CAPTURE + Piece.getPieceValue(8, position.getPhase());
         }
 
         if (isAKiller(move, ply))
             if (Move.equals(move, killers[ply][0])) return KILLER_ONE;
             else return KILLER_TWO;
 
-        return 128 * this.historicalMoveScores[position.sideToMove][Move.getStartEnd(move)] /
-                this.bfMoveScores[position.sideToMove][Move.getStartEnd(move)];
+        return 128
+                * this.historicalMoveScores[position.sideToMove][Move.getStartEnd(move)]
+                / this.bfMoveScores[position.sideToMove][Move.getStartEnd(move)];
     }
 
     public boolean isAKiller(int move, int ply) {

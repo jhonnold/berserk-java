@@ -1,6 +1,8 @@
 package me.honnold.berserk.util;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Arrays;
@@ -140,6 +142,59 @@ public class EPD {
         }
 
         return 0;
+    }
+
+    public static List<EPDScore> epdScores(String filename, String engineId) throws IOException {
+        BufferedReader br = new BufferedReader(new FileReader(filename));
+
+        return br.lines()
+                .flatMap(
+                        line -> {
+                            String[] parts = line.split(";");
+                            Position position = new Position(parts[0]);
+                            double score = Double.parseDouble(parts[1].replace(engineId + "=", ""));
+
+                            return Stream.of(new EPDScore(position, score));
+                        })
+                .collect(Collectors.toList());
+    }
+
+    public static class EPDScore {
+        public Position position;
+        public double expectedEval;
+
+        public EPDScore(Position position, double expectedEval) {
+            this.position = position;
+            this.expectedEval = expectedEval;
+        }
+    }
+
+    public static List<EPDTexel> loadTexel(String filename) throws IOException {
+        BufferedReader br = new BufferedReader(new FileReader(filename));
+
+        return br.lines()
+                .map(
+                        line -> {
+                            String[] parts = line.split(";");
+                            String fen = parts[0];
+
+                            int result = parts[1].indexOf("pgn=");
+                            double expected =
+                                    Double.parseDouble(parts[1].substring(result + 4, result + 7));
+
+                            return new EPDTexel(fen, expected);
+                        })
+                .collect(Collectors.toList());
+    }
+
+    public static class EPDTexel {
+        public String fen;
+        public double result; // 0.0 0.5 1.0
+
+        public EPDTexel(String fen, double expected) {
+            this.fen = fen;
+            this.result = expected;
+        }
     }
 
     public static class EPDAnalysis {

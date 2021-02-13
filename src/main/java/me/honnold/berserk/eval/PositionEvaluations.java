@@ -1,11 +1,9 @@
 package me.honnold.berserk.eval;
 
-import me.honnold.berserk.board.GameStage;
-import me.honnold.berserk.board.Piece;
+import static me.honnold.berserk.util.BBUtils.*;
+
 import me.honnold.berserk.board.Position;
 import me.honnold.berserk.moves.AttackMasks;
-
-import static me.honnold.berserk.util.BBUtils.*;
 
 public class PositionEvaluations {
     private static final PositionEvaluations POSITION_EVALUATION = new PositionEvaluations();
@@ -31,9 +29,9 @@ public class PositionEvaluations {
     }
 
     public int positionEvaluation(Position position) {
-        int idx = getEvalTableIdx(position.zHash);
-
-        if (evaluations[idx] == (int) position.zHash) return evaluations[idx + 1];
+        //        int idx = getEvalTableIdx(position.zHash);
+        //
+        //        if (evaluations[idx] == (int) position.zHash) return evaluations[idx + 1];
 
         int xside = 1 ^ position.sideToMove;
 
@@ -61,15 +59,11 @@ public class PositionEvaluations {
         score += this.kingEval(position, position.sideToMove);
         score -= this.kingEval(position, xside);
 
-        idx = getEvalTableIdx(position.zHash);
-        evaluations[idx] = (int) position.zHash;
-        evaluations[idx + 1] = score;
+        //        idx = getEvalTableIdx(position.zHash);
+        //        evaluations[idx] = (int) position.zHash;
+        //        evaluations[idx + 1] = score;
 
         return score;
-    }
-
-    private int getEvalTableIdx(long hash) {
-        return (int) (hash >>> shifts) << 1;
     }
 
     private long getMobilitySquares(Position position, int side) {
@@ -81,8 +75,8 @@ public class PositionEvaluations {
         long blockedAndHomePawns =
                 position.pieceBitboards[side]
                         & (shiftedPieces
-                        | masks.rowMasks[side == 0 ? 6 : 1]
-                        | masks.rowMasks[side == 0 ? 5 : 2]);
+                                | masks.rowMasks[side == 0 ? 6 : 1]
+                                | masks.rowMasks[side == 0 ? 5 : 2]);
         return ~(blockedAndHomePawns
                 | position.pieceBitboards[10 + side]
                 | position.pieceBitboards[8 + side]
@@ -92,15 +86,15 @@ public class PositionEvaluations {
     private int pieceValue(Position position, int side) {
         int score = 0;
 
-        GameStage stage = position.getGameStage();
-
         for (int i = side; i < 12; i += 2) {
             long bb = position.pieceBitboards[i];
             while (bb != 0) {
                 int sq = getLSBIndex(bb);
                 bb = popLSB(bb);
 
-                score += Piece.getPieceValue(i, stage) + Piece.getPositionValue(i, sq, stage);
+                score +=
+                        Piece.getPieceValue(i, position.getPhase())
+                                + Piece.getPositionValue(i, sq, position.getPhase());
             }
         }
 
@@ -166,10 +160,9 @@ public class PositionEvaluations {
 
             int mobility = countBits(mobilityArea & masks.getKnightAttacks(sq));
 
-            score += Piece.getPieceMobilityValue(2, mobility, position.getGameStage());
+            score += Piece.getPieceMobilityValue(2, mobility, position.getPhase());
 
-            if ((masks.getKnightAttacks(sq) & opponentKingSquares) != 0)
-                score += 31;
+            if ((masks.getKnightAttacks(sq) & opponentKingSquares) != 0) score += 31;
 
             if ((masks.getPawnAttacks(side ^ 1, sq) & position.pieceBitboards[side]) != 0)
                 score += 10;
@@ -186,7 +179,8 @@ public class PositionEvaluations {
         long opponentKingSquares = opponentKing | masks.getKingAttacks(getLSBIndex(opponentKing));
 
         if (countBits(myBishops)
-                > 1) { // TODO: This check should include something to make sure they're different colors
+                > 1) { // TODO: This check should include something to make sure they're different
+            // colors
             score += BISHOP_PAIR;
         }
 
@@ -197,15 +191,14 @@ public class PositionEvaluations {
             int mobility =
                     countBits(
                             masks.getBishopAttacks(
-                                    sq,
-                                    position.occupancyBitboards[2]
-                                            ^ position.pieceBitboards[8 + side])
+                                            sq,
+                                            position.occupancyBitboards[2]
+                                                    ^ position.pieceBitboards[8 + side])
                                     & mobilityArea);
-            score += Piece.getPieceMobilityValue(4, mobility, position.getGameStage());
+            score += Piece.getPieceMobilityValue(4, mobility, position.getPhase());
 
             long kingAttackSqs = masks.getBishopAttacks(sq, side) & opponentKingSquares;
-            if (kingAttackSqs != 0)
-                score += 15 * countBits(kingAttackSqs);
+            if (kingAttackSqs != 0) score += 15 * countBits(kingAttackSqs);
 
             if ((masks.getPawnAttacks(side ^ 1, sq) & position.pieceBitboards[side]) != 0)
                 score += 5;
@@ -228,22 +221,23 @@ public class PositionEvaluations {
             int mobility =
                     countBits(
                             masks.getRookAttacks(
-                                    sq,
-                                    position.occupancyBitboards[2]
-                                            ^ (position.pieceBitboards[8 + side]
-                                            | position.pieceBitboards[6 + side]))
+                                            sq,
+                                            position.occupancyBitboards[2]
+                                                    ^ (position.pieceBitboards[8 + side]
+                                                            | position.pieceBitboards[6 + side]))
                                     & mobilityArea);
-            score += Piece.getPieceMobilityValue(6, mobility, position.getGameStage());
+            score += Piece.getPieceMobilityValue(6, mobility, position.getPhase());
 
-            if (((position.pieceBitboards[side] | position.pieceBitboards[1 ^ side]) & masks.getColumnMask(col)) == 0) {
+            if (((position.pieceBitboards[side] | position.pieceBitboards[1 ^ side])
+                            & masks.getColumnMask(col))
+                    == 0) {
                 score += OPEN_FILE;
             } else if ((position.pieceBitboards[side] & masks.getColumnMask(col)) == 0) {
                 score += SEMI_OPEN_FILE;
             }
 
             long kingAttackSqs = masks.getRookAttacks(sq, side) & opponentKingSquares;
-            if (kingAttackSqs != 0)
-                score += 15 * countBits(kingAttackSqs);
+            if (kingAttackSqs != 0) score += 15 * countBits(kingAttackSqs);
 
             myRooks = popLSB(myRooks);
         }
@@ -264,11 +258,10 @@ public class PositionEvaluations {
                     countBits(
                             masks.getQueenAttacks(sq, position.occupancyBitboards[2])
                                     & mobilityArea);
-            score += Piece.getPieceMobilityValue(8, mobility, position.getGameStage());
+            score += Piece.getPieceMobilityValue(8, mobility, position.getPhase());
 
             long kingAttackSqs = masks.getQueenAttacks(sq, side) & opponentKingSquares;
-            if (kingAttackSqs != 0)
-                score += 4 * countBits(kingAttackSqs);
+            if (kingAttackSqs != 0) score += 4 * countBits(kingAttackSqs);
 
             myQueens = popLSB(myQueens);
         }
@@ -299,5 +292,9 @@ public class PositionEvaluations {
         }
 
         return score;
+    }
+
+    private int getEvalTableIdx(long hash) {
+        return (int) (hash >>> shifts) << 1;
     }
 }

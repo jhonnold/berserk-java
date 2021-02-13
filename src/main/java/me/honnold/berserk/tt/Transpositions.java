@@ -1,9 +1,8 @@
 package me.honnold.berserk.tt;
 
+import java.util.Arrays;
 import me.honnold.berserk.board.Position;
 import me.honnold.berserk.eval.Constants;
-
-import java.util.Arrays;
 
 public class Transpositions {
     public static final int LOWER = 0;

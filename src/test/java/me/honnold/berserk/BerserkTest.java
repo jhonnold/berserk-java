@@ -120,9 +120,9 @@ public class BerserkTest {
                 "Expected "
                         + (epdAnalysis.isBest ? "best" : "avoid")
                         + " move: "
-                        + epdAnalysis.move);
+                        + Move.toString(epdAnalysis.move));
 
-        Thread wait = berserk.searchForTime(epdAnalysis.position, 2500);
+        Thread wait = berserk.searchForTime(epdAnalysis.position, 1000);
         wait.join();
 
         int testResult = berserk.getSearchResults().getBestMove();

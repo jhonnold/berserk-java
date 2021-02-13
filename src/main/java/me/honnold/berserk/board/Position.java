@@ -10,6 +10,8 @@ import me.honnold.berserk.tt.ZobristHash;
 import org.apache.commons.lang3.ArrayUtils;
 
 public class Position {
+    public static final int OPENING = 5960;
+    public static final int ENDGAME = 1530;
     private final AttackMasks attackMasks = AttackMasks.getInstance();
     private final ZobristHash hashUtil = ZobristHash.getInstance();
     private final long[] zHashHistory = new long[512];
@@ -22,9 +24,9 @@ public class Position {
     public byte castling;
     public int epSquare;
     public long zHash;
-    private GameStage stage = null;
     private int moves = 0;
     private int captures = 0;
+    private int MAX_PHASE = 24;
 
     public Position(String fen) {
         String[] parts = fen.split("\\s+");
@@ -63,6 +65,20 @@ public class Position {
         return PositionEvaluations.getInstance().positionEvaluation(this);
     }
 
+    public int getPhase() {
+        int currentPhase =
+                MAX_PHASE
+                        - (countBits(
+                                        pieceBitboards[2]
+                                                | pieceBitboards[3]
+                                                | pieceBitboards[4]
+                                                | pieceBitboards[5])
+                                + countBits(pieceBitboards[6] | pieceBitboards[7]) * 2
+                                + countBits(pieceBitboards[8] | pieceBitboards[9]) * 4);
+
+        return (currentPhase * 256 + (MAX_PHASE / 2)) / MAX_PHASE;
+    }
+
     public void undoMove(int move) {
         int start = Move.getStart(move);
         int end = Move.getEnd(move);
@@ -78,9 +94,6 @@ public class Position {
         if (Move.isCapture(move)) {
             int capturedPiece = this.popCapture();
             this.pieceBitboards[capturedPiece] = setBit(this.pieceBitboards[capturedPiece], end);
-
-            // will require a re-eval
-            this.stage = null;
         }
 
         if (Move.isPromotion(move)) {
@@ -90,9 +103,6 @@ public class Position {
         if (Move.isEPCapture(move)) {
             this.pieceBitboards[1 - sideToMove] =
                     setBit(this.pieceBitboards[1 - sideToMove], end - pawnDirections[sideToMove]);
-
-            // will require a re-eval
-            this.stage = null;
         }
 
         if (Move.isCastle(move)) {
@@ -122,16 +132,6 @@ public class Position {
         occupancyBitboards[2] = occupancyBitboards[0] | occupancyBitboards[1];
     }
 
-    public long pawnAttacks(int side) {
-        if (side == 0) {
-            return ((pieceBitboards[0] >>> 7) & attackMasks.NOT_A_FILE)
-                    | ((pieceBitboards[0] >>> 9) & attackMasks.NOT_H_FILE);
-        } else {
-            return ((pieceBitboards[1] << 7) & attackMasks.NOT_H_FILE)
-                    | ((pieceBitboards[1] << 9) & attackMasks.NOT_A_FILE);
-        }
-    }
-
     private void popPositionHistory() {
         moves--;
 
@@ -144,6 +144,16 @@ public class Position {
         captures--;
 
         return this.captureHistory[captures];
+    }
+
+    public long pawnAttacks(int side) {
+        if (side == 0) {
+            return ((pieceBitboards[0] >>> 7) & attackMasks.NOT_A_FILE)
+                    | ((pieceBitboards[0] >>> 9) & attackMasks.NOT_H_FILE);
+        } else {
+            return ((pieceBitboards[1] << 7) & attackMasks.NOT_H_FILE)
+                    | ((pieceBitboards[1] << 9) & attackMasks.NOT_A_FILE);
+        }
     }
 
     public void nullMove() {
@@ -160,7 +170,6 @@ public class Position {
         zHashHistory[moves] = this.zHash;
         epHistory[moves] = this.epSquare;
         castleHistory[moves] = this.castling;
-
         moves++;
     }
 
@@ -192,9 +201,6 @@ public class Position {
                     break;
                 }
             }
-
-            // will require a re-eval
-            this.stage = null;
         }
 
         if (Move.isPromotion(move)) {
@@ -211,9 +217,6 @@ public class Position {
                             this.pieceBitboards[1 - sideToMove],
                             end - pawnDirections[this.sideToMove]);
             this.zHash ^= hashUtil.getPieceKey(1 - sideToMove, end - pawnDirections[sideToMove]);
-
-            // will require a re-eval
-            this.stage = null;
         }
 
         if (this.epSquare != -1) {
@@ -353,23 +356,5 @@ public class Position {
         if (castling == 0) builder.append("-");
 
         return builder.append("\n\n").toString();
-    }
-
-    public GameStage getGameStage() {
-        if (this.stage != null) return this.stage;
-
-        int pieceValues = 0;
-        for (int i = 2; i < 10; i++) {
-            long bb = pieceBitboards[i];
-            int numPieces = countBits(bb);
-
-            pieceValues += (numPieces * Piece.getPieceValue(i, GameStage.OPENING));
-        }
-
-        if (pieceValues > 5000) this.stage = GameStage.OPENING;
-        else if (pieceValues < 2300) this.stage = GameStage.ENDGAME;
-        else this.stage = GameStage.MIDDLEGAME;
-
-        return this.stage;
     }
 }

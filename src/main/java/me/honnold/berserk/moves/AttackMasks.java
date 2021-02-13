@@ -7,6 +7,19 @@ import me.honnold.berserk.util.Random;
 
 public class AttackMasks {
     private static final AttackMasks singleton = new AttackMasks();
+    public final long NOT_A_FILE = -72340172838076674L;
+    public final long NOT_H_FILE = 9187201950435737471L;
+    public final long[] rowMasks = {
+        255L,
+        65280L,
+        16711680L,
+        4278190080L,
+        1095216660480L,
+        280375465082880L,
+        71776119061217280L,
+        -72057594037927936L
+    };
+    public final long middleFourRanks = rowMasks[2] | rowMasks[3] | rowMasks[4] | rowMasks[5];
     private final Random random = Random.getInstance();
     private final long[][] PAWN_ATTACKS;
     private final long[] KNIGHT_ATTACKS;
@@ -38,11 +51,8 @@ public class AttackMasks {
         5, 5, 5, 5, 5, 5, 5, 5,
         6, 5, 5, 5, 5, 5, 5, 6
     };
-    public final long NOT_A_FILE = -72340172838076674L;
-    public final long NOT_H_FILE = 9187201950435737471L;
     private final long NOT_AB_FILE = -217020518514230020L;
     private final long NOT_GH_FILE = 4557430888798830399L;
-
     private final long[] columnMasks = {
         72340172838076673L,
         144680345676153346L,
@@ -53,17 +63,6 @@ public class AttackMasks {
         4629771061636907072L,
         -9187201950435737472L
     };
-    public final long[] rowMasks = {
-        255L,
-        65280L,
-        16711680L,
-        4278190080L,
-        1095216660480L,
-        280375465082880L,
-        71776119061217280L,
-        -72057594037927936L
-    };
-    public final long middleFourRanks = rowMasks[2] | rowMasks[3] | rowMasks[4] | rowMasks[5];
 
     private AttackMasks() {
         PAWN_ATTACKS = generatePawnAttacks();
@@ -103,6 +102,10 @@ public class AttackMasks {
         return KING_ATTACKS[square];
     }
 
+    public long getQueenAttacks(int square, long occupancy) {
+        return getBishopAttacks(square, occupancy) | getRookAttacks(square, occupancy);
+    }
+
     public long getBishopAttacks(int square, long occupancy) {
         occupancy &= BISHOP_MASKS[square];
         occupancy *= BISHOP_MAGICS[square];
@@ -117,10 +120,6 @@ public class AttackMasks {
         occupancy >>>= 64 - ROOK_OCCUPANCY_BITS[square];
 
         return ROOK_ATTACKS[square][(int) (occupancy & 0xFFF)];
-    }
-
-    public long getQueenAttacks(int square, long occupancy) {
-        return getBishopAttacks(square, occupancy) | getRookAttacks(square, occupancy);
     }
     // endregion
 

@@ -40,12 +40,27 @@ task assembleJar(type: Jar) {
     with jar
 }
 
+task assembleTexelJar(type: Jar) {
+    archiveBaseName = 'texel'
+
+    manifest {
+        attributes 'Main-Class': 'me.honnold.berserk.tune.TuneUp'
+    }
+    from { configurations.implementation.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
+
 run {
     standardInput = System.in
 }
 
 spotless {
     java {
+        target project.fileTree(project.rootDir) {
+            include '**/*.java'
+            exclude '**/Piece.java'
+        }
+
         googleJavaFormat().aosp()
     }
 }
